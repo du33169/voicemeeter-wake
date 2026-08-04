@@ -20,6 +20,10 @@ class MainWindow {
 public:
 
     static constexpr UINT kTrayMsg = WM_APP + 1;
+    static constexpr UINT_PTR kLevelBarSubclassId = 1;
+
+    static LRESULT CALLBACK LevelBarSubclassProc(HWND, UINT, WPARAM, LPARAM,
+                                                 UINT_PTR, DWORD_PTR);
 
     MainWindow() = default;
     ~MainWindow();
@@ -55,6 +59,7 @@ private:
     std::wstring selected_outputs_text() const;
     static std::wstring state_text(MonitorState s);
     static std::wstring now_timestamp();
+    std::wstring vm_product_name() const;
 
     // monitoring
     bool start_timer();
@@ -64,6 +69,7 @@ private:
     void feed_monitor(float peak_db, std::int64_t now_ms, bool api_ok);
     void update_level_display(float peak_db);
     bool do_restart();
+    LRESULT level_bar_paint(HWND hwnd);
 
     // tray
     bool create_tray_icon();
@@ -88,12 +94,17 @@ private:
     HWND hwnd_arm_spin_ = nullptr;
     HWND hwnd_cooldown_spin_ = nullptr;
     HWND hwnd_outputs_label_ = nullptr;
+    HWND hwnd_vm_version_ = nullptr;
+    HWND hwnd_remote_dll_ = nullptr;
 
     bool hidden_ = false;
     bool tray_icon_added_ = false;
     bool tray_uses_v4_ = false;
     bool logged_in_ = false;
     bool type_known_ = false;
+    bool version_known_ = false;
+    bool vm_running_ = false;
+    unsigned long vm_version_ = 0;
     VoicemeeterRemote::Type vm_type_ = VoicemeeterRemote::Type::None;
 
     AppSettings settings_;
@@ -105,6 +116,7 @@ private:
     UINT taskbar_created_msg_ = 0;
     UINT dpi_ = 96;
     HFONT font_ = nullptr;
+    HFONT bold_font_ = nullptr;
 
     std::int64_t last_now_ms_ = 0;
     std::int64_t last_load_try_ms_ = 0;

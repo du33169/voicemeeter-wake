@@ -23,6 +23,8 @@ bool MainWindow::start_timer() {
 void MainWindow::reset_connection() {
     logged_in_ = false;
     type_known_ = false;
+    vm_running_ = false;
+    version_known_ = false;
     monitor_.reset();
     update_output_controls();
 }
@@ -52,11 +54,11 @@ void MainWindow::attempt_connect() {
             if (rc == 0 || rc == 1) {
                 logged_in_ = true;
                 type_known_ = false;
-                if (rc == 0) {
+                vm_running_ = rc == 0;
+                if (vm_running_) {
                     append_log(L"Connected to Voicemeeter");
                 } else {
                     append_log(L"Voicemeeter not running (waiting for launch)");
-                    set_status_text(L"Voicemeeter not running");
                 }
                 refresh_status_texts();
             }
@@ -77,9 +79,11 @@ void MainWindow::poll_voicemeeter() {
 
     if (!type_known_) {
         VoicemeeterRemote::Type t;
-        if (remote_.get_type(t)) {
+        if (remote_.get_type(t) && t != VoicemeeterRemote::Type::None) {
             vm_type_ = t;
             type_known_ = true;
+            vm_running_ = true;
+            version_known_ = remote_.get_version(vm_version_);
             update_output_controls();
             append_log(L"Voicemeeter detected; monitoring " +
                        selected_outputs_text());

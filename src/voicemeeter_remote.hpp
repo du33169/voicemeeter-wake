@@ -33,6 +33,7 @@ public:
     bool loaded() const { return module_ != nullptr; }
 
     const std::wstring& last_error() const { return last_error_; }
+    const std::wstring& module_path() const { return module_path_; }
 
     // VBVMR_Login: 0 = ok, 1 = ok but Voicemeeter not running.
     long login();
@@ -53,6 +54,7 @@ private:
     HMODULE module_ = nullptr;
     bool logged_in_ = false;
     std::wstring last_error_;
+    std::wstring module_path_;
 
     FnLong fn_login_ = nullptr;
     FnLong fn_logout_ = nullptr;

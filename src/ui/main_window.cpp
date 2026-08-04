@@ -28,6 +28,10 @@ MainWindow::~MainWindow() {
         DeleteObject(font_);
         font_ = nullptr;
     }
+    if (bold_font_) {
+        DeleteObject(bold_font_);
+        bold_font_ = nullptr;
+    }
     if (remote_.loaded()) {
         remote_.logout();
     }
@@ -185,6 +189,10 @@ void MainWindow::on_create() {
     font_ = CreateFontIndirectW(&ncm.lfMessageFont);
     apply_font(hwnd_);
 
+    LOGFONTW bold_lf = ncm.lfMessageFont;
+    bold_lf.lfWeight = FW_BOLD;
+    bold_font_ = CreateFontIndirectW(&bold_lf);
+
     create_controls();
     apply_settings_to_controls();
 
@@ -199,8 +207,10 @@ void MainWindow::on_create() {
         all += L"\r\n";
     }
     SetWindowTextW(hwnd_log_, all.c_str());
-    SendMessageW(hwnd_log_, EM_SETSEL, WPARAM(-1), LPARAM(-1));
+    const LRESULT end = GetWindowTextLengthW(hwnd_log_);
+    SendMessageW(hwnd_log_, EM_SETSEL, end, end);
     SendMessageW(hwnd_log_, EM_SCROLLCARET, 0, 0);
+    SendMessageW(hwnd_log_, WM_VSCROLL, SB_BOTTOM, 0);
 
     if (!start_timer()) {
         append_log(L"Error: failed to start monitor timer");

@@ -69,6 +69,7 @@ bool VoicemeeterRemote::load() {
         last_error_ = L"Failed to load " + dll;
         return false;
     }
+    module_path_ = dll;
 
     fn_login_ = reinterpret_cast<FnLong>(GetProcAddress(module_, "VBVMR_Login"));
     fn_logout_ = reinterpret_cast<FnLong>(GetProcAddress(module_, "VBVMR_Logout"));
@@ -103,6 +104,7 @@ void VoicemeeterRemote::unload() {
     fn_get_level_ = nullptr;
     fn_set_parameter_float_ = nullptr;
     logged_in_ = false;
+    module_path_.clear();
 }
 
 long VoicemeeterRemote::login() {
