@@ -1,19 +1,17 @@
 #pragma once
 
-#include <windows.h>
+#include <deque>
 #include <string>
 #include <vector>
 
 namespace vmwake {
 
-// Minimal file-backed logger with in-memory tail for the GUI log pane.
+// Process-local logger backing the GUI log pane.
 class Logger {
 public:
     static Logger& instance();
 
-    // Create/open the log file under %LOCALAPPDATA%\VoicemeeterEngineWake
-    // (rotating a single .1 file when the log exceeds the size limit).
-    void init();
+    void init() {}
 
     // Append a line (no timestamp added here; callers may add their own).
     void write(const std::wstring& line);
@@ -22,12 +20,8 @@ public:
 
 private:
     Logger() = default;
-    ~Logger();
-    bool ensure_file();
-    bool rotate_if_needed(size_t additional_bytes);
 
-    HANDLE file_ = INVALID_HANDLE_VALUE;
-    std::wstring path_;
+    std::deque<std::wstring> lines_;
 };
 
 } // namespace vmwake

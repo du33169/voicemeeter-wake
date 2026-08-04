@@ -59,7 +59,8 @@ The GCC runtime is statically linked. The executable uses Windows' system UCRT
   Show / Pause / Restart now / Exit.
 - Settings are stored under `HKCU\Software\VoicemeeterEngineWake`;
   run-at-startup uses the standard `HKCU\...\Run` key.
-- Log file: `%LOCALAPPDATA%\VoicemeeterEngineWake\app.log` (rotated at 512 KB).
+- Operation logs are kept in memory for the current process and are discarded
+  when the application exits.
 
 ## Notes
 
