@@ -37,7 +37,7 @@ private:
     void on_command(int id);
     void on_close();
     void on_destroy();
-    void on_tray(UINT msg);
+    void on_tray(WPARAM wParam, LPARAM lParam);
 
     // ui
     void create_controls();
@@ -47,21 +47,25 @@ private:
     void set_status_text(const std::wstring& text);
     void set_state_text(const std::wstring& text);
     void append_log(const std::wstring& text);
-    void on_slider(HWND trackbar);
+    void update_output_controls();
+    void update_pause_button();
+    int output_count() const;
+    std::uint32_t selected_output_mask() const;
+    std::wstring selected_outputs_text() const;
     static std::wstring state_text(MonitorState s);
     static std::wstring now_timestamp();
 
     // monitoring
-    void start_timer();
+    bool start_timer();
     void poll_voicemeeter();
     void attempt_connect();
     void reset_connection();
     void feed_monitor(float peak_db, std::int64_t now_ms, bool api_ok);
     void update_level_display(float peak_db);
-    void do_restart();
+    bool do_restart();
 
     // tray
-    void create_tray_icon();
+    bool create_tray_icon();
     void remove_tray_icon();
     void update_tray_tooltip();
 
@@ -78,12 +82,15 @@ private:
     HWND hwnd_level_text_ = nullptr;
     HWND hwnd_restart_count_ = nullptr;
     HWND hwnd_last_restart_ = nullptr;
-    HWND hwnd_play_val_ = nullptr;
-    HWND hwnd_sil_val_ = nullptr;
-    HWND hwnd_arm_val_ = nullptr;
-    HWND hwnd_cooldown_val_ = nullptr;
+    HWND hwnd_play_spin_ = nullptr;
+    HWND hwnd_sil_spin_ = nullptr;
+    HWND hwnd_arm_spin_ = nullptr;
+    HWND hwnd_cooldown_spin_ = nullptr;
+    HWND hwnd_outputs_label_ = nullptr;
 
     bool hidden_ = false;
+    bool tray_icon_added_ = false;
+    bool tray_uses_v4_ = false;
     bool logged_in_ = false;
     bool type_known_ = false;
     VoicemeeterRemote::Type vm_type_ = VoicemeeterRemote::Type::None;
@@ -94,6 +101,7 @@ private:
     VoicemeeterRemote remote_;
 
     UINT timer_id_ = 0;
+    UINT taskbar_created_msg_ = 0;
     UINT dpi_ = 96;
     HFONT font_ = nullptr;
 

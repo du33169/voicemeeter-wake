@@ -42,6 +42,10 @@ public:
     // api_ok=false reports the Voicemeeter link as lost (resets silence state).
     MonitorEvent update(float peak_db, std::int64_t now_ms, bool api_ok);
 
+    // Complete a restart requested by update(). Cooldown starts only after the
+    // Remote API accepted the command; a failure leaves the monitor armed.
+    void complete_restart(bool succeeded, std::int64_t now_ms);
+
     MonitorState state() const { return state_; }
     bool armed() const { return armed_; }
     std::int64_t silence_elapsed_ms() const { return silence_elapsed_ms_; }
@@ -59,6 +63,7 @@ private:
     std::int64_t cooldown_until_ms_ = 0;
     std::int64_t silence_elapsed_ms_ = 0;
     float last_peak_db_ = 0.0f;
+    bool restart_pending_ = false;
 };
 
 } // namespace vmwake

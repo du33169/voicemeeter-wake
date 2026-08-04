@@ -44,12 +44,22 @@ if(MINGW)
     -Wall -Wextra
     -municode
   )
+  # Resolve common CRT symbols from the system UCRT before conda-forge's
+  # fallback private import library is considered.
   target_link_options(${APP_EXECUTABLE} PRIVATE
     -municode
     -mwindows
     -static
-    -s
+    -Wl,--undefined=memchr
+    -Wl,--undefined=memcmp
+    -Wl,--undefined=memcpy
+    -Wl,--undefined=memmove
+    -Wl,--undefined=strchr
   )
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_link_options(${APP_EXECUTABLE} PRIVATE -s)
+  endif()
+
 endif()
 
 target_link_libraries(${APP_EXECUTABLE} PRIVATE
@@ -59,6 +69,7 @@ target_link_libraries(${APP_EXECUTABLE} PRIVATE
   comctl32
   dwmapi
   gdi32
+  ucrtbase
 )
 
 # Unit tests ------------------------------------------------------------------
@@ -76,6 +87,7 @@ target_compile_definitions(audio_monitor_tests PRIVATE
 set_target_properties(audio_monitor_tests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 if(MINGW)
+  target_compile_options(audio_monitor_tests PRIVATE -Wall -Wextra)
   target_link_options(audio_monitor_tests PRIVATE -static)
 endif()
 

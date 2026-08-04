@@ -78,7 +78,7 @@ bool VoicemeeterRemote::load() {
     fn_get_level_ = reinterpret_cast<FnLevel>(GetProcAddress(module_, "VBVMR_GetLevel"));
     fn_set_parameter_float_ = reinterpret_cast<FnSetFloat>(GetProcAddress(module_, "VBVMR_SetParameterFloat"));
 
-    if (!fn_login_ || !fn_logout_ || !fn_get_type_ || !fn_get_version_ ||
+    if (!fn_login_ || !fn_logout_ || !fn_run_ || !fn_get_type_ || !fn_get_version_ ||
         !fn_get_level_ || !fn_set_parameter_float_) {
         last_error_ = L"VoicemeeterRemote64.dll is missing required exports";
         unload();
@@ -90,6 +90,7 @@ bool VoicemeeterRemote::load() {
 }
 
 void VoicemeeterRemote::unload() {
+    if (logged_in_) logout();
     if (module_) {
         FreeLibrary(module_);
         module_ = nullptr;
@@ -101,14 +102,21 @@ void VoicemeeterRemote::unload() {
     fn_get_version_ = nullptr;
     fn_get_level_ = nullptr;
     fn_set_parameter_float_ = nullptr;
+    logged_in_ = false;
 }
 
 long VoicemeeterRemote::login() {
-    return fn_login_ ? fn_login_() : -1;
+    if (!fn_login_) return -1;
+    const long rc = fn_login_();
+    if (rc == 0 || rc == 1) logged_in_ = true;
+    return rc;
 }
 
 long VoicemeeterRemote::logout() {
-    return fn_logout_ ? fn_logout_() : -1;
+    if (!logged_in_) return 0;
+    const long rc = fn_logout_ ? fn_logout_() : -1;
+    logged_in_ = false;
+    return rc;
 }
 
 long VoicemeeterRemote::run_voicemeeter(Type type) {

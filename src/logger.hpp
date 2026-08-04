@@ -22,7 +22,9 @@ public:
 
 private:
     Logger() = default;
+    ~Logger();
     bool ensure_file();
+    bool rotate_if_needed(size_t additional_bytes);
 
     HANDLE file_ = INVALID_HANDLE_VALUE;
     std::wstring path_;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace vmwake {
@@ -11,6 +12,7 @@ struct AppSettings {
     int confirm_samples = 3;
     int arm_after_ms = 600000; // 600 s
     int cooldown_ms = 5000;    // 5 s
+    std::uint32_t output_bus_mask = 0x01; // one of A1..A5
     bool start_minimized = false;
     int restart_count = 0;
     std::wstring last_restart; // empty if never

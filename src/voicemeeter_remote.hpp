@@ -51,6 +51,7 @@ private:
     using FnSetFloat = long(WINAPI*)(char*, float);
 
     HMODULE module_ = nullptr;
+    bool logged_in_ = false;
     std::wstring last_error_;
 
     FnLong fn_login_ = nullptr;

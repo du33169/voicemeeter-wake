@@ -37,6 +37,7 @@ MainWindow::~MainWindow() {
 
 bool MainWindow::create(HINSTANCE hInstance) {
     hinstance_ = hInstance;
+    taskbar_created_msg_ = RegisterWindowMessageW(L"TaskbarCreated");
     dpi_ = GetDpiForSystem();
     if (dpi_ == 0) dpi_ = 96;
 
@@ -55,8 +56,10 @@ bool MainWindow::create(HINSTANCE hInstance) {
         return false;
     }
 
-    const int cx = dpi_scale(584, dpi_);
-    const int cy = dpi_scale(744, dpi_);
+    RECT window_rect = {0, 0, dpi_scale(584, dpi_), dpi_scale(744, dpi_)};
+    AdjustWindowRectExForDpi(&window_rect, kWindowStyle, FALSE, 0, dpi_);
+    const int cx = window_rect.right - window_rect.left;
+    const int cy = window_rect.bottom - window_rect.top;
 
     // Load persisted settings before creating controls.
     settings_ = settings::load();
@@ -77,13 +80,13 @@ bool MainWindow::create(HINSTANCE hInstance) {
         return false;
     }
 
-    create_tray_icon();
+    const bool tray_available = create_tray_icon();
     Logger::instance().write(ftime() + L"  ===== startup =====  " +
                              (settings_.enabled ? L"auto-wake: ON"
                                                 : L"auto-wake: OFF"));
     append_log(L"Program started (waiting for Voicemeeter)");
 
-    if (settings_.start_minimized) {
+    if (settings_.start_minimized && tray_available) {
         hidden_ = true;
         ShowWindow(hwnd_, SW_HIDE);
     } else {
@@ -115,6 +118,10 @@ void MainWindow::apply_font(HWND hwnd) {
 }
 
 LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (taskbar_created_msg_ != 0 && msg == taskbar_created_msg_) {
+        create_tray_icon();
+        return 0;
+    }
     switch (msg) {
     case WM_CREATE:
         on_create();
@@ -124,9 +131,6 @@ LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_COMMAND:
         on_command(GET_WM_COMMAND_ID(wParam, lParam));
-        return 0;
-    case WM_HSCROLL:
-        on_slider(reinterpret_cast<HWND>(lParam));
         return 0;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
@@ -144,7 +148,7 @@ LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 1;
     }
     case kTrayMsg:
-        on_tray(static_cast<UINT>(lParam));
+        on_tray(wParam, lParam);
         return 0;
     case WM_CLOSE:
         on_close();
@@ -160,7 +164,8 @@ LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
 void MainWindow::on_create() {
     INITCOMMONCONTROLSEX icc = {};
     icc.dwSize = sizeof(icc);
-    icc.dwICC = ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS | ICC_BAR_CLASSES;
+    icc.dwICC = ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS | ICC_BAR_CLASSES |
+                ICC_UPDOWN_CLASS;
     InitCommonControlsEx(&icc);
 
     // Segoe UI (or the user's message font) instead of the legacy bitmap font.
@@ -189,7 +194,10 @@ void MainWindow::on_create() {
     SendMessageW(hwnd_log_, EM_SETSEL, WPARAM(-1), LPARAM(-1));
     SendMessageW(hwnd_log_, EM_SCROLLCARET, 0, 0);
 
-    start_timer();
+    if (!start_timer()) {
+        append_log(L"Error: failed to start monitor timer");
+        set_state_text(L"Monitor unavailable");
+    }
     refresh_status_texts();
 }
 
@@ -201,20 +209,27 @@ void MainWindow::on_timer() {
 void MainWindow::on_command(int id) {
     switch (id) {
     case IDC_BTN_START_VM:
-        remote_.run_voicemeeter(VoicemeeterRemote::Type::Banana);
-        append_log(L"Launch request sent for Voicemeeter Banana");
+        if (remote_.run_voicemeeter(VoicemeeterRemote::Type::Banana) == 0) {
+            append_log(L"Launch request sent for Voicemeeter Banana");
+        } else {
+            append_log(L"Error: failed to launch Voicemeeter Banana");
+        }
         break;
     case IDC_BTN_RESTART:
         append_log(L"Manual audio engine restart");
-        do_restart();
-        monitor_.reset();
+        if (do_restart()) monitor_.reset();
         break;
-    case IDC_CHK_ENABLED: {
-        const bool on = Button_GetCheck(control(IDC_CHK_ENABLED)) == BST_CHECKED;
-        settings_.enabled = on;
+    case IDC_BTN_EXIT:
+        Logger::instance().write(ftime() + L"  ===== exit =====");
+        DestroyWindow(hwnd_);
+        break;
+    case IDC_BTN_TOGGLE: {
+        settings_.enabled = !settings_.enabled;
         settings::save(settings_);
         monitor_.reset();
-        append_log(on ? L"Auto-wake: ENABLED" : L"Auto-wake: PAUSED");
+        append_log(settings_.enabled ? L"Auto-wake: ENABLED"
+                                     : L"Auto-wake: PAUSED");
+        update_pause_button();
         update_tray_tooltip();
         break;
     }
@@ -263,6 +278,18 @@ void MainWindow::on_close() {
 }
 
 void MainWindow::on_destroy() {
+    if (timer_id_) {
+        KillTimer(hwnd_, timer_id_);
+        timer_id_ = 0;
+    }
+    if (remote_.loaded()) {
+        const long rc = remote_.logout();
+        Logger::instance().write(ftime() + L"  Remote logout: " +
+                                 std::to_wstring(rc));
+        remote_.unload();
+    }
+    logged_in_ = false;
+    type_known_ = false;
     remove_tray_icon();
     PostQuitMessage(0);
 }

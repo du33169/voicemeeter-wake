@@ -44,14 +44,18 @@ struct ScriptResult {
 };
 
 ScriptResult run_script(const std::string& name,
-                        const std::vector<Step>& script, long long t0 = 0) {
+                         const std::vector<Step>& script, long long t0 = 0) {
+    (void)name;
     AudioMonitor m(cfg());
     long long t = t0;
     ScriptResult r;
     for (const auto& s : script) {
         for (int i = 0; i < s.ticks; ++i) {
             auto ev = m.update(s.db, t, s.ok);
-            if (ev.restart_requested) ++r.restart_count;
+            if (ev.restart_requested) {
+                ++r.restart_count;
+                m.complete_restart(true, t);
+            }
             if (ev.armed) r.saw_armed = true;
             t += 100;
         }
@@ -155,6 +159,37 @@ void test_reset_clears_state() {
     check(m.state() == MonitorState::Disconnected, "reset -> Disconnected");
 }
 
+void test_failed_restart_stays_armed_and_retries() {
+    AudioMonitor m(cfg());
+    long long t = 0;
+    for (int i = 0; i < 13; ++i) {
+        m.update(kSilence, t, true);
+        t += 100;
+    }
+
+    bool first_request = false;
+    for (int i = 0; i < 3; ++i) {
+        auto ev = m.update(kPlay, t, true);
+        t += 100;
+        if (ev.restart_requested) {
+            first_request = true;
+            m.complete_restart(false, t);
+        }
+    }
+    check(first_request, "armed playback requests a restart");
+    check(m.armed(), "failed restart must leave monitor armed");
+    check(m.state() == MonitorState::Armed,
+          "failed restart must not enter cooldown");
+
+    bool retried = false;
+    for (int i = 0; i < 3; ++i) {
+        auto ev = m.update(kPlay, t, true);
+        t += 100;
+        if (ev.restart_requested) retried = true;
+    }
+    check(retried, "failed restart must retry after fresh confirmation");
+}
+
 } // namespace
 
 int main() {
@@ -167,6 +202,7 @@ int main() {
     test_api_loss_resets_silence();
     test_threshold_jitter_no_false_trigger();
     test_reset_clears_state();
+    test_failed_restart_stays_armed_and_retries();
 
     if (g_failures == 0) {
         std::printf("All audio_monitor tests passed.\n");

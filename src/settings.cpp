@@ -1,6 +1,8 @@
 #include "settings.hpp"
 
 #include <windows.h>
+#include <algorithm>
+#include <limits>
 #include <vector>
 
 namespace vmwake {
@@ -71,14 +73,33 @@ AppSettings load() {
     if (read_dword(L"Enabled", &v)) s.enabled = v != 0;
     if (read_dword(L"PlayThresholdDb", &v)) s.play_threshold_db = static_cast<float>(static_cast<long>(v)) / 100.0f;
     if (read_dword(L"SilenceThresholdDb", &v)) s.silence_threshold_db = static_cast<float>(static_cast<long>(v)) / 100.0f;
-    if (read_dword(L"ConfirmSamples", &v)) s.confirm_samples = static_cast<int>(v);
-    if (read_dword(L"ArmAfterMs", &v)) s.arm_after_ms = static_cast<int>(v);
-    if (read_dword(L"CooldownMs", &v)) s.cooldown_ms = static_cast<int>(v);
+    if (read_dword(L"ConfirmSamples", &v))
+        s.confirm_samples = static_cast<int>(std::min<DWORD>(v, 100));
+    if (read_dword(L"ArmAfterMs", &v))
+        s.arm_after_ms = static_cast<int>(std::min<DWORD>(v, 120 * 60000));
+    if (read_dword(L"CooldownMs", &v))
+        s.cooldown_ms = static_cast<int>(std::min<DWORD>(v, 60000));
+    if (read_dword(L"OutputBusMask", &v)) s.output_bus_mask = v & 0x1f;
     if (read_dword(L"StartMinimized", &v)) s.start_minimized = v != 0;
-    if (read_dword(L"RestartCount", &v)) s.restart_count = static_cast<int>(v);
+    if (read_dword(L"RestartCount", &v))
+        s.restart_count = static_cast<int>(std::min<DWORD>(
+            v, static_cast<DWORD>(std::numeric_limits<int>::max())));
     read_str(L"LastRestart", &s.last_restart);
 
     RegCloseKey(key);
+
+    s.play_threshold_db = std::clamp(s.play_threshold_db, -55.0f, 0.0f);
+    s.silence_threshold_db = std::clamp(s.silence_threshold_db, -60.0f, 0.0f);
+    if (s.silence_threshold_db >= s.play_threshold_db) {
+        s.silence_threshold_db = s.play_threshold_db - 5.0f;
+    }
+    s.confirm_samples = std::clamp(s.confirm_samples, 1, 100);
+    s.arm_after_ms = std::clamp(s.arm_after_ms, 60000, 120 * 60000);
+    s.cooldown_ms = std::clamp(s.cooldown_ms, 1000, 60000);
+    if (s.output_bus_mask == 0) s.output_bus_mask = 0x01;
+    s.output_bus_mask &= (~s.output_bus_mask + 1u);
+    s.restart_count = std::clamp(s.restart_count, 0,
+                                 std::numeric_limits<int>::max());
     return s;
 }
 
@@ -102,6 +123,7 @@ void save(const AppSettings& s) {
     write_dword(L"ConfirmSamples", static_cast<DWORD>(s.confirm_samples));
     write_dword(L"ArmAfterMs", static_cast<DWORD>(s.arm_after_ms));
     write_dword(L"CooldownMs", static_cast<DWORD>(s.cooldown_ms));
+    write_dword(L"OutputBusMask", s.output_bus_mask & 0x1f);
     write_dword(L"StartMinimized", s.start_minimized ? 1 : 0);
     write_dword(L"RestartCount", static_cast<DWORD>(s.restart_count));
     RegSetValueExW(key, L"LastRestart", 0, REG_SZ,

@@ -18,9 +18,10 @@ implements the silence-to-playback trigger using the official
 
 ## How it works
 
-- Monitors the Voicemeeter Banana **A1** output bus peak level (`VBVMR_GetLevel(3, 0..7, ...)`)
-  at 100 ms intervals.
-- After A1 has been silent for the configured "arm silence" time (default 600 s),
+- Detects the running Voicemeeter edition and lets you select one
+  hardware output buses (A1..A3 on Banana, A1..A5 on Potato) at 100 ms intervals.
+- After the selected output has been silent for the configured "arm silence"
+  time (default 600 s),
   the monitor is armed.
 - The next time playback is detected (level ≥ play threshold for 3 consecutive
   samples), it calls `Command.Restart = 1` once.
@@ -31,9 +32,9 @@ implements the silence-to-playback trigger using the official
 ## Requirements
 
 - Windows 10/11 x64.
-- Voicemeeter Banana installed (official Remote API DLL `VoicemeeterRemote64.dll`
+- Voicemeeter Standard, Banana, or Potato installed (official Remote API DLL `VoicemeeterRemote64.dll`
   is loaded from the install directory - it is never bundled).
-- The target headset must be assigned to **A1**.
+- The target headset must be assigned to the selected hardware output.
 
 ## Build
 
@@ -47,12 +48,12 @@ pixi run test        # run the audio-monitor unit tests
 pixi run run         # launch the app
 ```
 
-The final executable is statically linked (no GCC runtime DLLs) and depends only
-on Windows system libraries plus the UCRT.
+The GCC runtime is statically linked. The executable uses Windows' system UCRT
+(`ucrtbase.dll`) and does not require a private compiler-runtime DLL.
 
 ## Usage
 
-- Main window shows live A1 level, monitor state, silence timer, restart stats
+- Main window shows the selected outputs' peak level, monitor state, silence timer, restart stats
   and a concise operation log.
 - Closing the window minimizes to the tray; right-click the tray icon for
   Show / Pause / Restart now / Exit.
@@ -62,7 +63,7 @@ on Windows system libraries plus the UCRT.
 
 ## Notes
 
-- Only Voicemeeter **Banana** is supported (Potato/Standard show a warning and
-  are ignored).
+- Voicemeeter Standard exposes A1/A2 as one shared output level in the Remote
+  API, so those two physical outputs cannot be monitored independently.
 - Restarting the engine causes a short (~1 s) audio interruption; that is
   inherent to the wake-up mechanism.

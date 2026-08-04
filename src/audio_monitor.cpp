@@ -1,8 +1,25 @@
 #include "audio_monitor.hpp"
 
+#include <algorithm>
+
 namespace vmwake {
 
-AudioMonitor::AudioMonitor(MonitorConfig cfg) : cfg_(cfg) {
+namespace {
+
+MonitorConfig sanitize(MonitorConfig cfg) {
+    cfg.sample_interval_ms = std::max(cfg.sample_interval_ms, 1);
+    cfg.confirm_samples = std::max(cfg.confirm_samples, 1);
+    cfg.arm_after_ms = std::max(cfg.arm_after_ms, 0);
+    cfg.cooldown_ms = std::max(cfg.cooldown_ms, 0);
+    if (cfg.silence_threshold_db >= cfg.play_threshold_db) {
+        cfg.silence_threshold_db = cfg.play_threshold_db - 0.1f;
+    }
+    return cfg;
+}
+
+} // namespace
+
+AudioMonitor::AudioMonitor(MonitorConfig cfg) : cfg_(sanitize(cfg)) {
     reset();
 }
 
@@ -15,10 +32,11 @@ void AudioMonitor::reset() {
     silence_start_ms_ = -1;
     cooldown_until_ms_ = 0;
     silence_elapsed_ms_ = 0;
+    restart_pending_ = false;
 }
 
 void AudioMonitor::set_config(const MonitorConfig& cfg) {
-    cfg_ = cfg;
+    cfg_ = sanitize(cfg);
     reset();
 }
 
@@ -57,12 +75,12 @@ MonitorEvent AudioMonitor::update(float peak_db, std::int64_t now_ms, bool api_o
     const bool silent = peak_db <= cfg_.silence_threshold_db;
 
     if (playing) {
-        ++playing_confirm_;
+        if (playing_confirm_ < cfg_.confirm_samples) ++playing_confirm_;
         silence_confirm_ = 0;
         silence_start_ms_ = -1;
     } else if (silent) {
         playing_confirm_ = 0;
-        ++silence_confirm_;
+        if (silence_confirm_ < cfg_.confirm_samples) ++silence_confirm_;
     } else {
         // Ambiguous level (between thresholds): reset both counters.
         playing_confirm_ = 0;
@@ -109,10 +127,9 @@ MonitorEvent AudioMonitor::update(float peak_db, std::int64_t now_ms, bool api_o
         break;
 
     case MonitorState::Armed:
-        if (playing_ok) {
+        if (playing_ok && !restart_pending_) {
             ev.restart_requested = true;
-            armed_ = false;
-            enter_state(MonitorState::Cooldown, now_ms);
+            restart_pending_ = true;
         }
         break;
 
@@ -135,6 +152,19 @@ MonitorEvent AudioMonitor::update(float peak_db, std::int64_t now_ms, bool api_o
         last_state_ = state_;
     }
     return ev;
+}
+
+void AudioMonitor::complete_restart(bool succeeded, std::int64_t now_ms) {
+    if (!restart_pending_) return;
+
+    restart_pending_ = false;
+    if (succeeded) {
+        armed_ = false;
+        enter_state(MonitorState::Cooldown, now_ms);
+    } else {
+        // Require a fresh confirmation before retrying a failed command.
+        playing_confirm_ = 0;
+    }
 }
 
 } // namespace vmwake
