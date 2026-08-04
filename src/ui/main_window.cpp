@@ -132,13 +132,21 @@ LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_COMMAND:
         on_command(GET_WM_COMMAND_ID(wParam, lParam));
         return 0;
+    case WM_NOTIFY:
+        on_notify(lParam);
+        return 0;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
         // Blend static text / group boxes / read-only edit with the white
         // client background instead of the default gray.
         SetBkMode(reinterpret_cast<HDC>(wParam), TRANSPARENT);
-        SetTextColor(reinterpret_cast<HDC>(wParam),
-                     GetSysColor(COLOR_WINDOWTEXT));
+        SetTextColor(
+            reinterpret_cast<HDC>(wParam),
+            msg == WM_CTLCOLORSTATIC &&
+                    GetDlgCtrlID(reinterpret_cast<HWND>(lParam)) ==
+                        IDC_STATIC_VERSION
+                ? GetSysColor(COLOR_GRAYTEXT)
+                : GetSysColor(COLOR_WINDOWTEXT));
         return reinterpret_cast<LRESULT>(GetStockObject(WHITE_BRUSH));
     case WM_ERASEBKGND: {
         HDC dc = reinterpret_cast<HDC>(wParam);
@@ -165,7 +173,7 @@ void MainWindow::on_create() {
     INITCOMMONCONTROLSEX icc = {};
     icc.dwSize = sizeof(icc);
     icc.dwICC = ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS | ICC_BAR_CLASSES |
-                ICC_UPDOWN_CLASS;
+                ICC_UPDOWN_CLASS | ICC_LINK_CLASS;
     InitCommonControlsEx(&icc);
 
     // Segoe UI (or the user's message font) instead of the legacy bitmap font.

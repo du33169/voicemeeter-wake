@@ -36,6 +36,9 @@ enum ControlId : int {
     IDC_STATIC_OUTPUTS = 1124,
     IDC_BTN_EXIT = 1125,
     IDC_EDIT_LOG = 1201,
+    IDC_LINK_PROJECT = 1202,
+    IDC_LINK_VOICEMEETER = 1203,
+    IDC_STATIC_VERSION = 1204,
 };
 
 enum TrayCmd : unsigned int {

@@ -1,0 +1,9 @@
+#pragma once
+
+namespace vmwake {
+namespace appinfo {
+
+inline constexpr const wchar_t* kVersion = L"@VMWAKE_VERSION@";
+
+} // namespace appinfo
+} // namespace vmwake

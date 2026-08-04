@@ -13,6 +13,9 @@ set(VMWAKE_DESCRIPTION "Restart Voicemeeter audio engine when playback resumes a
 set(VMWAKE_COMPANY "Voicemeeter Wake")
 
 configure_file(resources/app.rc.in "${CMAKE_CURRENT_BINARY_DIR}/app.rc" @ONLY)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+configure_file(src/app_version.hpp.in
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/app_version.hpp" @ONLY)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -39,7 +42,11 @@ add_executable(${VMWAKE_EXECUTABLE} WIN32
   src/logger.cpp
 )
 
-target_include_directories(${VMWAKE_EXECUTABLE} PRIVATE src src/ui)
+target_include_directories(${VMWAKE_EXECUTABLE} PRIVATE
+  src
+  src/ui
+  "${CMAKE_CURRENT_BINARY_DIR}/generated"
+)
 
 target_compile_definitions(${VMWAKE_EXECUTABLE} PRIVATE
   UNICODE

@@ -1,8 +1,10 @@
 #pragma once
 
+#include "app_version.hpp"
+
 // Single source of truth for product/identity strings shared across modules.
 // Registry-based identity is kept separate from display text so that a future
-// rename only touches this file (migration constants stay in settings.cpp).
+// rename only touches this file.
 
 namespace vmwake {
 namespace appinfo {
@@ -23,6 +25,11 @@ inline constexpr const wchar_t* kRegistryPath = L"Software\\VoicemeeterWake";
 
 // Value name under HKCU\...\Run used for run-at-startup.
 inline constexpr const wchar_t* kRunValue = L"VoicemeeterWake";
+
+inline constexpr const wchar_t* kProjectUrl =
+    L"https://github.com/du33169/voicemeeter-wake";
+inline constexpr const wchar_t* kVoicemeeterUrl =
+    L"https://www.voicemeeter.com";
 
 } // namespace appinfo
 } // namespace vmwake

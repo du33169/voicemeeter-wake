@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cmath>
 
+#include "app_info.hpp"
 #include "logger.hpp"
 #include "win_util.hpp"
 
@@ -173,10 +174,53 @@ void MainWindow::create_controls() {
     // --- Operation log ---
     const int logY = statY + 74 + 10;
     mk(L"BUTTON", L"Operation log", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, L,
-       logY, W, 256, 0);
+       logY, W, 226, 0);
     mk(L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY |
            WS_VSCROLL | WS_TABSTOP | ES_AUTOVSCROLL,
-       L + 10, logY + 20, W - 20, 226, IDC_EDIT_LOG);
+       L + 10, logY + 20, W - 20, 196, IDC_EDIT_LOG);
+
+    // --- Footer status row ---
+    mk(L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_ETCHEDHORZ,
+       0, 708, 584, 2, 0);
+
+    std::wstring project_link = L"<a href=\"";
+    project_link += appinfo::kProjectUrl;
+    project_link += L"\">";
+    project_link += appinfo::kProjectUrl;
+    project_link += L"</a>";
+    mk(WC_LINK, project_link.c_str(),
+       WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
+       16, 716, 294, 20, IDC_LINK_PROJECT);
+
+    const std::wstring version = L"v" + std::wstring(appinfo::kVersion);
+    mk(L"STATIC", version.c_str(), WS_CHILD | WS_VISIBLE | SS_LEFT,
+       314, 716, 72, 20, IDC_STATIC_VERSION);
+
+    std::wstring voicemeeter_link = L"<a href=\"";
+    voicemeeter_link += appinfo::kVoicemeeterUrl;
+    voicemeeter_link += L"\">Voicemeeter</a>";
+    mk(WC_LINK, voicemeeter_link.c_str(),
+       WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT | LWS_RIGHT,
+       448, 716, 120, 20, IDC_LINK_VOICEMEETER);
+}
+
+void MainWindow::on_notify(LPARAM lParam) {
+    const auto* header = reinterpret_cast<const NMHDR*>(lParam);
+    if (!header || (header->code != NM_CLICK && header->code != NM_RETURN)) {
+        return;
+    }
+
+    const wchar_t* url = nullptr;
+    if (header->idFrom == IDC_LINK_PROJECT) {
+        url = appinfo::kProjectUrl;
+    } else if (header->idFrom == IDC_LINK_VOICEMEETER) {
+        url = appinfo::kVoicemeeterUrl;
+    }
+    if (url && reinterpret_cast<INT_PTR>(
+                   ShellExecuteW(hwnd_, L"open", url, nullptr, nullptr,
+                                 SW_SHOWNORMAL)) <= 32) {
+        append_log(L"Error: failed to open link");
+    }
 }
 
 void MainWindow::apply_settings_to_controls() {

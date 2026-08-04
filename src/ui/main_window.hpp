@@ -35,6 +35,7 @@ private:
     void on_create();
     void on_timer();
     void on_command(int id);
+    void on_notify(LPARAM lParam);
     void on_close();
     void on_destroy();
     void on_tray(WPARAM wParam, LPARAM lParam);
