@@ -18,7 +18,7 @@ LRESULT CALLBACK MainWindowProc(HWND, UINT, WPARAM, LPARAM);
 // Main window: status area, settings, stats, tray icon, and an operation log.
 class MainWindow {
 public:
-    static constexpr const wchar_t* kClassName = L"VoicemeeterEngineWakeWindow";
+
     static constexpr UINT kTrayMsg = WM_APP + 1;
 
     MainWindow() = default;

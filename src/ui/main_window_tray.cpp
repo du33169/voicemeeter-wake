@@ -4,6 +4,7 @@
 
 #include <cstdio>
 
+#include "app_info.hpp"
 #include "logger.hpp"
 #include "win_util.hpp"
 
@@ -19,7 +20,7 @@ bool MainWindow::create_tray_icon() {
     nid_.uCallbackMessage = kTrayMsg;
     nid_.uVersion = NOTIFYICON_VERSION_4;
     nid_.hIcon = LoadIconW(hinstance_, MAKEINTRESOURCE(1));
-    wcscpy(nid_.szTip, L"Voicemeeter Engine Wake");
+    wcscpy(nid_.szTip, appinfo::kDisplayName);
     tray_icon_added_ = Shell_NotifyIconW(NIM_ADD, &nid_) != FALSE;
     if (!tray_icon_added_) {
         Logger::instance().write(ftime() + L"  Failed to create tray icon");
@@ -43,7 +44,7 @@ void MainWindow::remove_tray_icon() {
 void MainWindow::update_tray_tooltip() {
     if (!tray_icon_added_) return;
     wchar_t tip[128] = {0};
-    swprintf(tip, 128, L"Voicemeeter Engine Wake%s",
+    swprintf(tip, 128, L"%ls%ls", appinfo::kDisplayName,
              settings_.enabled ? L" - running" : L" - paused");
     wcscpy(nid_.szTip, tip);
     nid_.uFlags = NIF_TIP;

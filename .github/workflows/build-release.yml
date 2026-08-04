@@ -1,0 +1,84 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate release version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw "Release tag must use vMAJOR.MINOR.PATCH format: $tag"
+          }
+
+          $version = $tag.Substring(1)
+          $versionFile = (Get-Content VERSION -Raw).Trim()
+          $pixi = [regex]::Match(
+            (Get-Content pixi.toml -Raw),
+            '(?m)^version\s*=\s*"(\d+\.\d+\.\d+)"'
+          )
+          if (-not $pixi.Success) {
+            throw 'Could not read the project version from pixi.toml'
+          }
+          if ($versionFile -ne $version -or $pixi.Groups[1].Value -ne $version) {
+            throw "Tag $tag does not match VERSION ($versionFile) and Pixi ($($pixi.Groups[1].Value))"
+          }
+
+      - name: Set up Pixi
+        uses: prefix-dev/setup-pixi@v0.9.0
+        with:
+          cache: true
+          frozen: true
+
+      - name: Build
+        run: pixi run build
+
+      - name: Test
+        run: pixi run test
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist
+          Copy-Item build\voicemeeter-wake.exe dist\
+          Copy-Item README.md dist\
+          Copy-Item LICENSE dist\
+          Compress-Archive `
+            -Path dist\voicemeeter-wake.exe, dist\README.md, dist\LICENSE `
+            -DestinationPath voicemeeter-wake-windows-x64.zip
+
+      - name: Upload main build artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicemeeter-wake-windows-x64-${{ github.sha }}
+          path: voicemeeter-wake-windows-x64.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" `
+            voicemeeter-wake-windows-x64.zip `
+            --verify-tag `
+            --generate-notes `
+            --title "$env:GITHUB_REF_NAME"

@@ -5,14 +5,13 @@
 
 #include <cstdio>
 
+#include "app_info.hpp"
 #include "logger.hpp"
 #include "win_util.hpp"
 
 namespace vmwake {
 
 namespace {
-
-constexpr wchar_t kAppTitle[] = L"Voicemeeter Engine Wake";
 
 // Fixed-size window: caption + system menu + minimize (no resize, no maximize).
 constexpr DWORD kWindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU |
@@ -49,7 +48,7 @@ bool MainWindow::create(HINSTANCE hInstance) {
     wc.hIcon = LoadIconW(hInstance, MAKEINTRESOURCE(1));
     wc.hIconSm = wc.hIcon;
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-    wc.lpszClassName = kClassName;
+    wc.lpszClassName = appinfo::kWindowClass;
     if (!RegisterClassExW(&wc)) {
         Logger::instance().write(L"RegisterClassExW failed: " +
                                  std::to_wstring(GetLastError()));
@@ -71,7 +70,8 @@ bool MainWindow::create(HINSTANCE hInstance) {
     monitor_cfg_.cooldown_ms = settings_.cooldown_ms;
     monitor_ = AudioMonitor(monitor_cfg_);
 
-    hwnd_ = CreateWindowExW(0, kClassName, kAppTitle, kWindowStyle,
+    hwnd_ = CreateWindowExW(0, appinfo::kWindowClass, appinfo::kDisplayName,
+                            kWindowStyle,
                             CW_USEDEFAULT, CW_USEDEFAULT, cx, cy, nullptr,
                             nullptr, hInstance, this);
     if (!hwnd_) {
@@ -269,7 +269,7 @@ void MainWindow::on_close() {
 
     // Show a clear balloon notification when minimized to tray.
     nid_.uFlags = NIF_INFO | NIF_TIP;
-    wcscpy(nid_.szInfoTitle, L"Voicemeeter Engine Wake");
+    wcscpy(nid_.szInfoTitle, appinfo::kDisplayName);
     wcscpy(nid_.szInfo,
            L"Still running in the background - auto-wake is active. "
            L"Right-click this icon to exit.");

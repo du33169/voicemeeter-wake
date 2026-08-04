@@ -1,9 +1,9 @@
 [workspace]
 channels = ["conda-forge"]
 platforms = ["win-64"]
-name = "voicemeter-engine-wake"
+name = "voicemeeter-wake"
 version = "0.1.0"
-description = "Watch Voicemeeter A1 output level and restart the audio engine once when audio resumes after a long silence (headphone wake-up)."
+description = "Watch Voicemeeter output level and restart the audio engine once when audio resumes after a long silence (headphone wake-up)."
 
 [dependencies]
 gcc_win-64 = "15.*"
@@ -15,4 +15,4 @@ ninja = ">=1.12,<2"
 configure = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain.cmake"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"] }
-run = { cmd = "build\\voicemeeter-engine-wake.exe", depends-on = ["build"] }
+run = { cmd = "build\\voicemeeter-wake.exe", depends-on = ["build"] }

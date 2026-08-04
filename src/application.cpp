@@ -2,17 +2,11 @@
 
 #include <dwmapi.h>
 
+#include "app_info.hpp"
 #include "logger.hpp"
 #include "main_window.hpp"
 
 namespace vmwake {
-
-namespace {
-
-constexpr wchar_t kMutexName[] =
-    L"Local\\VoicemeeterEngineWake.SingleInstance.0A2F";
-
-} // namespace
 
 Application::~Application() {
     if (mutex_) {
@@ -25,10 +19,10 @@ int Application::run(HINSTANCE hInstance, int nCmdShow) {
     (void)nCmdShow; // showing/hiding is controlled by the start-minimized setting
     Logger::instance().init();
 
-    mutex_ = CreateMutexW(nullptr, FALSE, kMutexName);
+    mutex_ = CreateMutexW(nullptr, FALSE, appinfo::kMutexName);
     if (mutex_ && GetLastError() == ERROR_ALREADY_EXISTS) {
         // Already running: bring the existing window to the foreground and exit.
-        HWND existing = FindWindowW(MainWindow::kClassName, nullptr);
+        HWND existing = FindWindowW(appinfo::kWindowClass, nullptr);
         if (existing) {
             if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
             SetForegroundWindow(existing);

@@ -5,15 +5,15 @@
 #include <limits>
 #include <vector>
 
+#include "app_info.hpp"
+
 namespace vmwake {
 namespace settings {
 
 namespace {
 
-constexpr wchar_t kRegPath[] = L"Software\\VoicemeeterEngineWake";
 constexpr wchar_t kRunPath[] =
     L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-constexpr wchar_t kRunValue[] = L"VoicemeeterEngineWake";
 
 std::wstring current_exe_path() {
     std::vector<wchar_t> buf(MAX_PATH);
@@ -30,19 +30,8 @@ std::wstring current_exe_path() {
     return {};
 }
 
-} // namespace
-
-const wchar_t* registry_path() { return kRegPath; }
-
-AppSettings load() {
-    AppSettings s;
-
-    HKEY key = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, kRegPath, 0, KEY_READ, &key) !=
-        ERROR_SUCCESS) {
-        return s;
-    }
-
+// Reads every known value from an open settings key.
+void read_from_key(HKEY key, AppSettings& s) {
     auto read_dword = [&](const wchar_t* name, DWORD* out) {
         DWORD size = sizeof(DWORD);
         DWORD type = 0;
@@ -85,8 +74,21 @@ AppSettings load() {
         s.restart_count = static_cast<int>(std::min<DWORD>(
             v, static_cast<DWORD>(std::numeric_limits<int>::max())));
     read_str(L"LastRestart", &s.last_restart);
+}
 
-    RegCloseKey(key);
+} // namespace
+
+const wchar_t* registry_path() { return appinfo::kRegistryPath; }
+
+AppSettings load() {
+    AppSettings s;
+
+    HKEY key = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, appinfo::kRegistryPath, 0, KEY_READ,
+                      &key) == ERROR_SUCCESS) {
+        read_from_key(key, s);
+        RegCloseKey(key);
+    }
 
     s.play_threshold_db = std::clamp(s.play_threshold_db, -55.0f, 0.0f);
     s.silence_threshold_db = std::clamp(s.silence_threshold_db, -60.0f, 0.0f);
@@ -105,8 +107,9 @@ AppSettings load() {
 
 void save(const AppSettings& s) {
     HKEY key = nullptr;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, kRegPath, 0, nullptr, 0,
-                        KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, appinfo::kRegistryPath, 0, nullptr,
+                        0, KEY_WRITE, nullptr, &key, nullptr) !=
+        ERROR_SUCCESS) {
         return;
     }
 
@@ -140,7 +143,8 @@ bool get_autostart() {
         return false;
     }
     DWORD size = 0;
-    LONG rc = RegQueryValueExW(key, kRunValue, nullptr, nullptr, nullptr, &size);
+    LONG rc = RegQueryValueExW(key, appinfo::kRunValue, nullptr, nullptr,
+                               nullptr, &size);
     RegCloseKey(key);
     return rc == ERROR_SUCCESS;
 }
@@ -153,11 +157,11 @@ void set_autostart(bool enabled) {
     }
     if (enabled) {
         std::wstring cmd = L"\"" + current_exe_path() + L"\"";
-        RegSetValueExW(key, kRunValue, 0, REG_SZ,
+        RegSetValueExW(key, appinfo::kRunValue, 0, REG_SZ,
                        reinterpret_cast<const BYTE*>(cmd.c_str()),
                        static_cast<DWORD>((cmd.size() + 1) * sizeof(wchar_t)));
     } else {
-        RegDeleteValueW(key, kRunValue);
+        RegDeleteValueW(key, appinfo::kRunValue);
     }
     RegCloseKey(key);
 }

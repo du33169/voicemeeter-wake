@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.30)
 
-project(voicemeeter-engine-wake VERSION 0.1.0 LANGUAGES C CXX)
+# Single source of truth for the project version: VERSION at the repo root.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VMWAKE_VERSION_RAW)
+string(STRIP "${VMWAKE_VERSION_RAW}" VMWAKE_VERSION)
+string(REPLACE "." "," VMWAKE_VERSION_COMMA "${VMWAKE_VERSION}")
+
+project(voicemeeter-wake VERSION "${VMWAKE_VERSION}" LANGUAGES C CXX)
+
+set(VMWAKE_EXECUTABLE ${PROJECT_NAME})
+set(VMWAKE_PRODUCT_NAME "Voicemeeter Wake")
+set(VMWAKE_DESCRIPTION "Restart Voicemeeter audio engine when playback resumes after long silence (headphone wake-up)")
+set(VMWAKE_COMPANY "Voicemeeter Wake")
+
+configure_file(resources/app.rc.in "${CMAKE_CURRENT_BINARY_DIR}/app.rc" @ONLY)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -11,11 +23,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(APP_EXECUTABLE voicemeeter-engine-wake)
-
 # Core Windows GUI target -----------------------------------------------------
-add_executable(${APP_EXECUTABLE} WIN32
-  resources/app.rc
+add_executable(${VMWAKE_EXECUTABLE} WIN32
+  ${CMAKE_CURRENT_BINARY_DIR}/app.rc
   src/main.cpp
   src/application.cpp
   src/ui/main_window.cpp
@@ -29,9 +39,9 @@ add_executable(${APP_EXECUTABLE} WIN32
   src/logger.cpp
 )
 
-target_include_directories(${APP_EXECUTABLE} PRIVATE src src/ui)
+target_include_directories(${VMWAKE_EXECUTABLE} PRIVATE src src/ui)
 
-target_compile_definitions(${APP_EXECUTABLE} PRIVATE
+target_compile_definitions(${VMWAKE_EXECUTABLE} PRIVATE
   UNICODE
   _UNICODE
   WIN32_LEAN_AND_MEAN
@@ -40,13 +50,15 @@ target_compile_definitions(${APP_EXECUTABLE} PRIVATE
 )
 
 if(MINGW)
-  target_compile_options(${APP_EXECUTABLE} PRIVATE
+  set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I ${CMAKE_CURRENT_SOURCE_DIR}/resources")
+
+  target_compile_options(${VMWAKE_EXECUTABLE} PRIVATE
     -Wall -Wextra
     -municode
   )
   # Resolve common CRT symbols from the system UCRT before conda-forge's
   # fallback private import library is considered.
-  target_link_options(${APP_EXECUTABLE} PRIVATE
+  target_link_options(${VMWAKE_EXECUTABLE} PRIVATE
     -municode
     -mwindows
     -static
@@ -57,12 +69,12 @@ if(MINGW)
     -Wl,--undefined=strchr
   )
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_link_options(${APP_EXECUTABLE} PRIVATE -s)
+    target_link_options(${VMWAKE_EXECUTABLE} PRIVATE -s)
   endif()
 
 endif()
 
-target_link_libraries(${APP_EXECUTABLE} PRIVATE
+target_link_libraries(${VMWAKE_EXECUTABLE} PRIVATE
   user32
   shell32
   advapi32
