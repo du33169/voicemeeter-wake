@@ -101,21 +101,13 @@ void MainWindow::on_tray(WPARAM wParam, LPARAM lParam) {
             SetForegroundWindow(hwnd_);
             break;
         case IDTRAY_TOGGLE:
-            settings_.enabled = !settings_.enabled;
-            settings::save(settings_);
-            monitor_.reset();
-            append_log(settings_.enabled ? L"Auto-wake: ENABLED"
-                                         : L"Auto-wake: PAUSED");
-            update_pause_button();
-            update_tray_tooltip();
+            toggle_auto_wake();
             break;
         case IDTRAY_RESTART:
-            append_log(L"Manual audio engine restart");
-            if (do_restart()) monitor_.reset();
+            restart_manually();
             break;
         case IDTRAY_EXIT:
-            Logger::instance().write(ftime() + L"  ===== exit =====");
-            DestroyWindow(hwnd_);
+            exit_application();
             break;
         default:
             break;

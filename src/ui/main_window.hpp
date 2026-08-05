@@ -42,6 +42,7 @@ private:
     void on_close();
     void on_destroy();
     void on_tray(WPARAM wParam, LPARAM lParam);
+    void on_dpi_changed(WPARAM wParam, LPARAM lParam);
 
     // ui
     void create_controls();
@@ -53,6 +54,11 @@ private:
     void append_log(const std::wstring& text);
     void update_output_controls();
     void update_pause_button();
+    void toggle_auto_wake();
+    void restart_manually();
+    void exit_application();
+    void launch_voicemeeter();
+    bool can_restart() const;
     int output_count() const;
     std::uint32_t selected_output_mask() const;
     std::wstring selected_outputs_text() const;
@@ -76,6 +82,7 @@ private:
 
     HWND control(int id) const;
     void apply_font(HWND hwnd);
+    void recreate_fonts();
 
     HINSTANCE hinstance_ = nullptr;
     HWND hwnd_ = nullptr;

@@ -140,6 +140,9 @@ LRESULT MainWindow::handle_message(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_NOTIFY:
         on_notify(lParam);
         return 0;
+    case WM_DPICHANGED:
+        on_dpi_changed(wParam, lParam);
+        return 0;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
         // Blend static text / group boxes / read-only edit with the white
@@ -181,18 +184,7 @@ void MainWindow::on_create() {
                 ICC_UPDOWN_CLASS | ICC_LINK_CLASS;
     InitCommonControlsEx(&icc);
 
-    // Segoe UI (or the user's message font) instead of the legacy bitmap font.
-    NONCLIENTMETRICSW ncm = {};
-    ncm.cbSize = sizeof(ncm);
-    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
-    ncm.lfMessageFont.lfHeight = -MulDiv(9, static_cast<int>(dpi_), 72);
-    ncm.lfMessageFont.lfQuality = CLEARTYPE_QUALITY;
-    font_ = CreateFontIndirectW(&ncm.lfMessageFont);
-    apply_font(hwnd_);
-
-    LOGFONTW bold_lf = ncm.lfMessageFont;
-    bold_lf.lfWeight = FW_BOLD;
-    bold_font_ = CreateFontIndirectW(&bold_lf);
+    recreate_fonts();
 
     create_controls();
     apply_settings_to_controls();
@@ -228,53 +220,174 @@ void MainWindow::on_timer() {
 void MainWindow::on_command(int id) {
     switch (id) {
     case IDC_BTN_START_VM:
-        if (remote_.run_voicemeeter(VoicemeeterRemote::Type::Banana) == 0) {
-            append_log(L"Launch request sent for Voicemeeter Banana");
-        } else {
-            append_log(L"Error: failed to launch Voicemeeter Banana");
-        }
+        launch_voicemeeter();
         break;
     case IDC_BTN_RESTART:
-        append_log(L"Manual audio engine restart");
-        if (do_restart()) monitor_.reset();
+        restart_manually();
         break;
     case IDC_BTN_EXIT:
-        Logger::instance().write(ftime() + L"  ===== exit =====");
-        DestroyWindow(hwnd_);
+        exit_application();
         break;
     case IDC_BTN_TOGGLE: {
-        settings_.enabled = !settings_.enabled;
-        settings::save(settings_);
-        monitor_.reset();
-        append_log(settings_.enabled ? L"Auto-wake: ENABLED"
-                                     : L"Auto-wake: PAUSED");
-        update_pause_button();
-        update_tray_tooltip();
+        toggle_auto_wake();
         break;
     }
     case IDC_BTN_SAVE:
         apply_controls_to_settings();
-        settings::save(settings_);
+        if (settings::save(settings_)) {
+            append_log(L"Settings saved");
+        } else {
+            append_log(L"Error: settings could not be persisted");
+        }
         monitor_cfg_ = monitor_config_from(settings_);
         monitor_.set_config(monitor_cfg_);
-        append_log(L"Settings saved");
         refresh_status_texts();
         break;
     case IDC_CHK_AUTOSTART:
-        settings::set_autostart(
-            Button_GetCheck(control(IDC_CHK_AUTOSTART)) == BST_CHECKED);
-        append_log(Button_GetCheck(control(IDC_CHK_AUTOSTART)) == BST_CHECKED
-                       ? L"Run at startup: ENABLED"
-                       : L"Run at startup: DISABLED");
+        if (settings::set_autostart(
+                Button_GetCheck(control(IDC_CHK_AUTOSTART)) == BST_CHECKED)) {
+            append_log(Button_GetCheck(control(IDC_CHK_AUTOSTART)) == BST_CHECKED
+                           ? L"Run at startup: ENABLED"
+                           : L"Run at startup: DISABLED");
+        } else {
+            Button_SetCheck(control(IDC_CHK_AUTOSTART),
+                            settings::get_autostart() ? BST_CHECKED : BST_UNCHECKED);
+            append_log(L"Error: run-at-startup setting could not be changed");
+        }
         break;
     case IDC_CHK_MINIMIZE:
         settings_.start_minimized =
             Button_GetCheck(control(IDC_CHK_MINIMIZE)) == BST_CHECKED;
-        settings::save(settings_);
+        if (!settings::save(settings_)) {
+            append_log(L"Error: start-minimized setting could not be persisted");
+        }
         break;
     default:
         break;
     }
+}
+
+void MainWindow::on_dpi_changed(WPARAM wParam, LPARAM lParam) {
+    const UINT new_dpi = LOWORD(wParam);
+    if (new_dpi == 0 || new_dpi == dpi_) return;
+
+    const UINT old_dpi = dpi_;
+    const auto* suggested = reinterpret_cast<const RECT*>(lParam);
+    SetWindowPos(hwnd_, nullptr, suggested->left, suggested->top,
+                 suggested->right - suggested->left, suggested->bottom - suggested->top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    for (HWND child = GetWindow(hwnd_, GW_CHILD); child;
+         child = GetWindow(child, GW_HWNDNEXT)) {
+        RECT rc;
+        GetWindowRect(child, &rc);
+        MapWindowPoints(nullptr, hwnd_, reinterpret_cast<POINT*>(&rc), 2);
+        SetWindowPos(child, nullptr, MulDiv(rc.left, new_dpi, old_dpi),
+                     MulDiv(rc.top, new_dpi, old_dpi),
+                     MulDiv(rc.right - rc.left, new_dpi, old_dpi),
+                     MulDiv(rc.bottom - rc.top, new_dpi, old_dpi),
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    dpi_ = new_dpi;
+    recreate_fonts();
+    InvalidateRect(hwnd_, nullptr, TRUE);
+}
+
+void MainWindow::toggle_auto_wake() {
+    settings_.enabled = !settings_.enabled;
+    if (!settings::save(settings_)) {
+        append_log(L"Error: auto-wake state could not be persisted");
+    }
+    monitor_.reset();
+    append_log(settings_.enabled ? L"Auto-wake: ENABLED" : L"Auto-wake: PAUSED");
+    update_pause_button();
+    update_tray_tooltip();
+}
+
+void MainWindow::restart_manually() {
+    if (!can_restart()) {
+        append_log(L"Manual restart unavailable: Voicemeeter is not connected");
+        return;
+    }
+    append_log(L"Manual audio engine restart");
+    if (do_restart()) monitor_.reset();
+}
+
+bool MainWindow::can_restart() const {
+    return remote_.loaded() && logged_in_ && vm_running_ && type_known_;
+}
+
+void MainWindow::exit_application() {
+    Logger::instance().write(ftime() + L"  ===== exit =====");
+    DestroyWindow(hwnd_);
+}
+
+void MainWindow::launch_voicemeeter() {
+    VoicemeeterRemote::Type type = vm_type_;
+    if (!type_known_) {
+        constexpr UINT kLaunchStandard = 2101;
+        constexpr UINT kLaunchBanana = 2102;
+        constexpr UINT kLaunchPotato = 2103;
+
+        RECT rc;
+        GetWindowRect(control(IDC_BTN_START_VM), &rc);
+        HMENU menu = CreatePopupMenu();
+        if (!menu) {
+            append_log(L"Error: failed to open Voicemeeter version menu");
+            return;
+        }
+        AppendMenuW(menu, MF_STRING, kLaunchStandard, L"Voicemeeter Standard");
+        AppendMenuW(menu, MF_STRING, kLaunchBanana, L"Voicemeeter Banana");
+        AppendMenuW(menu, MF_STRING, kLaunchPotato, L"Voicemeeter Potato");
+        const UINT command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_LEFTALIGN,
+                                             rc.left, rc.bottom, 0, hwnd_, nullptr);
+        DestroyMenu(menu);
+        if (command == 0) return;
+        type = command == kLaunchStandard ? VoicemeeterRemote::Type::Voicemeeter
+             : command == kLaunchBanana ? VoicemeeterRemote::Type::Banana
+                                        : VoicemeeterRemote::Type::Potato;
+    }
+    if (type == VoicemeeterRemote::Type::PotatoX64) {
+        type = VoicemeeterRemote::Type::Potato;
+    }
+    const wchar_t* name = type == VoicemeeterRemote::Type::Voicemeeter ? L"Standard"
+                        : type == VoicemeeterRemote::Type::Banana ? L"Banana"
+                                                                  : L"Potato";
+    if (remote_.run_voicemeeter(type) == 0) {
+        append_log(L"Launch request sent for Voicemeeter " + std::wstring(name));
+    } else {
+        append_log(L"Error: failed to launch Voicemeeter " + std::wstring(name));
+    }
+}
+
+void MainWindow::recreate_fonts() {
+    NONCLIENTMETRICSW ncm = {};
+    ncm.cbSize = sizeof(ncm);
+    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+    ncm.lfMessageFont.lfHeight = -MulDiv(9, static_cast<int>(dpi_), 72);
+    ncm.lfMessageFont.lfQuality = CLEARTYPE_QUALITY;
+    LOGFONTW bold_lf = ncm.lfMessageFont;
+    bold_lf.lfWeight = FW_BOLD;
+    HFONT new_font = CreateFontIndirectW(&ncm.lfMessageFont);
+    HFONT new_bold_font = CreateFontIndirectW(&bold_lf);
+    if (!new_font || !new_bold_font) {
+        if (new_font) DeleteObject(new_font);
+        if (new_bold_font) DeleteObject(new_bold_font);
+        return;
+    }
+
+    HFONT old_font = font_;
+    HFONT old_bold_font = bold_font_;
+    font_ = new_font;
+    bold_font_ = new_bold_font;
+    apply_font(hwnd_);
+    for (HWND child = GetWindow(hwnd_, GW_CHILD); child;
+         child = GetWindow(child, GW_HWNDNEXT)) {
+        const DWORD style = static_cast<DWORD>(GetWindowLongPtrW(child, GWL_STYLE));
+        const HFONT child_font = (style & BS_TYPEMASK) == BS_GROUPBOX ? bold_font_ : font_;
+        SendMessageW(child, WM_SETFONT, reinterpret_cast<WPARAM>(child_font), TRUE);
+    }
+    if (old_font) DeleteObject(old_font);
+    if (old_bold_font) DeleteObject(old_bold_font);
 }
 
 void MainWindow::on_close() {

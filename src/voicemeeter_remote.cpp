@@ -1,6 +1,8 @@
 #include "voicemeeter_remote.hpp"
 
+#include <algorithm>
 #include <cstdio>
+#include <cwctype>
 #include <vector>
 
 // GetProcAddress returns FARPROC; casting it to the real function-pointer type
@@ -42,8 +44,27 @@ std::wstring find_install_dir() {
         return {};
     }
 
+    // UninstallString commonly quotes the executable and appends arguments.
+    std::wstring command = buf;
+    const size_t first = command.find_first_not_of(L" \t");
+    if (first == std::wstring::npos) return {};
+    command.erase(0, first);
+    if (command.front() == L'\"') {
+        const size_t closing = command.find(L'\"', 1);
+        if (closing == std::wstring::npos) return {};
+        command.resize(closing);
+        command.erase(0, 1);
+    } else {
+        const auto exe = std::search(command.begin(), command.end(),
+                                     L".exe", L".exe" + 4,
+                                     [](wchar_t a, wchar_t b) {
+                                         return std::towlower(a) == b;
+                                     });
+        if (exe != command.end()) command.resize((exe - command.begin()) + 4);
+    }
+
     // UninstallString points at Voicemeeter*.exe; strip the file name.
-    std::wstring dir = buf;
+    std::wstring dir = command;
     const size_t slash = dir.find_last_of(L"\\/");
     if (slash == std::wstring::npos) {
         return {};

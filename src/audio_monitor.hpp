@@ -59,6 +59,7 @@ private:
     int silence_confirm_ = 0;
     std::int64_t silence_start_ms_ = -1;
     std::int64_t cooldown_until_ms_ = 0;
+    std::int64_t retry_not_before_ms_ = 0;
     std::int64_t silence_elapsed_ms_ = 0;
     bool restart_pending_ = false;
 };

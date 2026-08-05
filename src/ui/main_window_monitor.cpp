@@ -174,7 +174,9 @@ bool MainWindow::do_restart() {
             ++settings_.restart_count;
         }
         settings_.last_restart = ftime();
-        settings::save(settings_);
+        if (!settings::save(settings_)) {
+            append_log(L"Error: restart statistics could not be persisted");
+        }
         append_log(L"Voicemeeter audio engine restarted (wake-up)");
         wchar_t buf[48];
         swprintf(buf, 48, L"%d", settings_.restart_count);

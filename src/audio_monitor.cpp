@@ -31,6 +31,7 @@ void AudioMonitor::reset() {
     silence_confirm_ = 0;
     silence_start_ms_ = -1;
     cooldown_until_ms_ = 0;
+    retry_not_before_ms_ = 0;
     silence_elapsed_ms_ = 0;
     restart_pending_ = false;
 }
@@ -121,7 +122,7 @@ MonitorEvent AudioMonitor::update(float peak_db, std::int64_t now_ms, bool api_o
         break;
 
     case MonitorState::Armed:
-        if (playing_ok && !restart_pending_) {
+        if (playing_ok && !restart_pending_ && now_ms >= retry_not_before_ms_) {
             ev.restart_requested = true;
             restart_pending_ = true;
         }
@@ -154,9 +155,11 @@ void AudioMonitor::complete_restart(bool succeeded, std::int64_t now_ms) {
     restart_pending_ = false;
     if (succeeded) {
         armed_ = false;
+        retry_not_before_ms_ = 0;
         enter_state(MonitorState::Cooldown, now_ms);
     } else {
-        // Require a fresh confirmation before retrying a failed command.
+        // Avoid repeatedly issuing a command that the Remote API rejects.
+        retry_not_before_ms_ = now_ms + std::max(cfg_.cooldown_ms, 1000);
         playing_confirm_ = 0;
     }
 }

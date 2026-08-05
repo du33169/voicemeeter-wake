@@ -176,13 +176,21 @@ void test_failed_restart_stays_armed_and_retries() {
     check(m.state() == MonitorState::Armed,
           "failed restart must not enter cooldown");
 
-    bool retried = false;
+    bool retried_too_soon = false;
     for (int i = 0; i < 3; ++i) {
+        auto ev = m.update(kPlay, t, true);
+        t += 100;
+        if (ev.restart_requested) retried_too_soon = true;
+    }
+    check(!retried_too_soon, "failed restart must wait before retrying");
+
+    bool retried = false;
+    for (int i = 0; i < 8; ++i) {
         auto ev = m.update(kPlay, t, true);
         t += 100;
         if (ev.restart_requested) retried = true;
     }
-    check(retried, "failed restart must retry after fresh confirmation");
+    check(retried, "failed restart retries after the backoff window");
 }
 
 } // namespace

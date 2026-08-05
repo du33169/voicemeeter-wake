@@ -391,6 +391,9 @@ void MainWindow::update_output_controls() {
                                   IDC_CHK_OUTPUT_A3, IDC_CHK_OUTPUT_A4,
                                   IDC_CHK_OUTPUT_A5};
     const int count = output_count();
+    EnableWindow(control(IDC_BTN_RESTART), can_restart());
+    SetWindowTextW(control(IDC_BTN_START_VM),
+                   type_known_ ? L"Open Voicemeeter" : L"Launch Voicemeeter");
     SetWindowTextW(hwnd_outputs_label_,
                    count > 0 ? L"Monitor outputs:" : L"Outputs: connecting...");
     SetWindowTextW(control(IDC_CHK_OUTPUT_A1),

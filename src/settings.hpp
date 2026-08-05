@@ -23,11 +23,11 @@ namespace settings {
 // Returns defaults (and writes nothing) if the key is absent.
 AppSettings load();
 
-void save(const AppSettings& s);
+bool save(const AppSettings& s);
 
 // Run-key autostart ("HKCU\...\Run").  false disables.
 bool get_autostart();
-void set_autostart(bool enabled);
+bool set_autostart(bool enabled);
 
 } // namespace settings
 

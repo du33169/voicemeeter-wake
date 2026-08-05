@@ -17,9 +17,9 @@ constexpr wchar_t kRunPath[] =
 
 std::wstring current_exe_path() {
     std::vector<wchar_t> buf(MAX_PATH);
-    for (int attempt = 0; attempt < 2; ++attempt) {
+    while (buf.size() <= 32768) {
         const DWORD n = GetModuleFileNameW(nullptr, buf.data(),
-                                           static_cast<DWORD>(buf.size()));
+                                            static_cast<DWORD>(buf.size()));
         if (n == 0) return {};
         if (n + 1 < buf.size()) {
             buf[n] = 0;
@@ -103,35 +103,43 @@ AppSettings load() {
     return s;
 }
 
-void save(const AppSettings& s) {
+bool save(const AppSettings& s) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, appinfo::kRegistryPath, 0, nullptr,
                         0, KEY_WRITE, nullptr, &key, nullptr) !=
         ERROR_SUCCESS) {
-        return;
+        return false;
     }
 
     auto write_dword = [&](const wchar_t* name, DWORD v) {
-        RegSetValueExW(key, name, 0, REG_DWORD,
-                       reinterpret_cast<const BYTE*>(&v), sizeof(v));
+        return RegSetValueExW(key, name, 0, REG_DWORD,
+                              reinterpret_cast<const BYTE*>(&v), sizeof(v)) ==
+               ERROR_SUCCESS;
     };
 
-    write_dword(L"Enabled", s.enabled ? 1 : 0);
-    write_dword(L"PlayThresholdDb",
-                static_cast<DWORD>(static_cast<long>(s.play_threshold_db * 100.0f)));
-    write_dword(L"SilenceThresholdDb",
-                static_cast<DWORD>(static_cast<long>(s.silence_threshold_db * 100.0f)));
-    write_dword(L"ConfirmSamples", static_cast<DWORD>(s.confirm_samples));
-    write_dword(L"ArmAfterMs", static_cast<DWORD>(s.arm_after_ms));
-    write_dword(L"CooldownMs", static_cast<DWORD>(s.cooldown_ms));
-    write_dword(L"OutputBusMask", s.output_bus_mask & 0x1f);
-    write_dword(L"StartMinimized", s.start_minimized ? 1 : 0);
-    write_dword(L"RestartCount", static_cast<DWORD>(s.restart_count));
-    RegSetValueExW(key, L"LastRestart", 0, REG_SZ,
-                   reinterpret_cast<const BYTE*>(s.last_restart.c_str()),
-                   static_cast<DWORD>((s.last_restart.size() + 1) * sizeof(wchar_t)));
+    std::uint32_t output_mask = s.output_bus_mask & 0x1f;
+    if (output_mask == 0) output_mask = 0x01;
+    output_mask &= (~output_mask + 1u);
+
+    bool ok = true;
+    ok &= write_dword(L"Enabled", s.enabled ? 1 : 0);
+    ok &= write_dword(L"PlayThresholdDb",
+                      static_cast<DWORD>(static_cast<long>(s.play_threshold_db * 100.0f)));
+    ok &= write_dword(L"SilenceThresholdDb",
+                      static_cast<DWORD>(static_cast<long>(s.silence_threshold_db * 100.0f)));
+    ok &= write_dword(L"ConfirmSamples", static_cast<DWORD>(s.confirm_samples));
+    ok &= write_dword(L"ArmAfterMs", static_cast<DWORD>(s.arm_after_ms));
+    ok &= write_dword(L"CooldownMs", static_cast<DWORD>(s.cooldown_ms));
+    ok &= write_dword(L"OutputBusMask", output_mask);
+    ok &= write_dword(L"StartMinimized", s.start_minimized ? 1 : 0);
+    ok &= write_dword(L"RestartCount", static_cast<DWORD>(s.restart_count));
+    ok &= RegSetValueExW(key, L"LastRestart", 0, REG_SZ,
+                         reinterpret_cast<const BYTE*>(s.last_restart.c_str()),
+                         static_cast<DWORD>((s.last_restart.size() + 1) * sizeof(wchar_t))) ==
+          ERROR_SUCCESS;
 
     RegCloseKey(key);
+    return ok;
 }
 
 bool get_autostart() {
@@ -147,21 +155,28 @@ bool get_autostart() {
     return rc == ERROR_SUCCESS;
 }
 
-void set_autostart(bool enabled) {
+bool set_autostart(bool enabled) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, kRunPath, 0, nullptr, 0, KEY_SET_VALUE,
                         nullptr, &key, nullptr) != ERROR_SUCCESS) {
-        return;
+        return false;
     }
+    bool ok = false;
     if (enabled) {
-        std::wstring cmd = L"\"" + current_exe_path() + L"\"";
-        RegSetValueExW(key, appinfo::kRunValue, 0, REG_SZ,
-                       reinterpret_cast<const BYTE*>(cmd.c_str()),
-                       static_cast<DWORD>((cmd.size() + 1) * sizeof(wchar_t)));
+        const std::wstring exe_path = current_exe_path();
+        if (!exe_path.empty()) {
+            const std::wstring cmd = L"\"" + exe_path + L"\"";
+            ok = RegSetValueExW(key, appinfo::kRunValue, 0, REG_SZ,
+                                 reinterpret_cast<const BYTE*>(cmd.c_str()),
+                                 static_cast<DWORD>((cmd.size() + 1) * sizeof(wchar_t))) ==
+                 ERROR_SUCCESS;
+        }
     } else {
-        RegDeleteValueW(key, appinfo::kRunValue);
+        const LONG rc = RegDeleteValueW(key, appinfo::kRunValue);
+        ok = rc == ERROR_SUCCESS || rc == ERROR_FILE_NOT_FOUND;
     }
     RegCloseKey(key);
+    return ok;
 }
 
 } // namespace settings
