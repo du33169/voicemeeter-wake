@@ -1,4 +1,8 @@
+<div align="center">
+<img src="./resources/app.svg" style="width:4rem;" />
+
 # Voicemeeter Wake
+</div>
 
 A small native Windows (Win32) tray application that wakes up your headphones by restarting the Voicemeeter audio engine after a long silence.
 
