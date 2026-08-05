@@ -78,8 +78,6 @@ void read_from_key(HKEY key, AppSettings& s) {
 
 } // namespace
 
-const wchar_t* registry_path() { return appinfo::kRegistryPath; }
-
 AppSettings load() {
     AppSettings s;
 

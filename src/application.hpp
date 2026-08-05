@@ -16,7 +16,6 @@ public:
     int run(HINSTANCE hInstance, int nCmdShow);
 
 private:
-    MainWindow* window_ = nullptr;
     HANDLE mutex_ = nullptr;
 };
 

@@ -1,7 +1,6 @@
 #include "application.hpp"
 
 #include "app_info.hpp"
-#include "logger.hpp"
 #include "main_window.hpp"
 
 namespace vmwake {
@@ -15,7 +14,6 @@ Application::~Application() {
 
 int Application::run(HINSTANCE hInstance, int nCmdShow) {
     (void)nCmdShow; // showing/hiding is controlled by the start-minimized setting
-    Logger::instance().init();
 
     mutex_ = CreateMutexW(nullptr, FALSE, appinfo::kMutexName);
     if (mutex_ && GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -29,13 +27,10 @@ int Application::run(HINSTANCE hInstance, int nCmdShow) {
     }
 
     MainWindow window;
-    window_ = &window;
     if (!window.create(hInstance)) {
-        window_ = nullptr;
         return 1;
     }
     window.run_message_loop();
-    window_ = nullptr;
     return 0;
 }
 

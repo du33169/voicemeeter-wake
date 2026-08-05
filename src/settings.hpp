@@ -20,8 +20,6 @@ struct AppSettings {
 
 namespace settings {
 
-const wchar_t* registry_path();
-
 // Returns defaults (and writes nothing) if the key is absent.
 AppSettings load();
 

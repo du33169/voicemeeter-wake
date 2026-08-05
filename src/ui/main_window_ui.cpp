@@ -520,8 +520,6 @@ std::wstring MainWindow::state_text(MonitorState s) {
     return L"";
 }
 
-std::wstring MainWindow::now_timestamp() { return ftime(); }
-
 void MainWindow::append_log(const std::wstring& text) {
     const std::wstring line = ftime() + L"  " + text;
     Logger::instance().write(line);

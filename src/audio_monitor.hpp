@@ -22,8 +22,6 @@ struct MonitorConfig {
 };
 
 struct MonitorEvent {
-    bool level_changed = false;
-    float peak_db = 0.0f;
     MonitorState state = MonitorState::Disconnected;
     bool state_changed = false;
     bool restart_requested = false; // one-shot: call Command.Restart now
@@ -62,7 +60,6 @@ private:
     std::int64_t silence_start_ms_ = -1;
     std::int64_t cooldown_until_ms_ = 0;
     std::int64_t silence_elapsed_ms_ = 0;
-    float last_peak_db_ = 0.0f;
     bool restart_pending_ = false;
 };
 

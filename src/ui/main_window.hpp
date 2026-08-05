@@ -30,7 +30,6 @@ public:
 
     bool create(HINSTANCE hInstance);
     void run_message_loop();
-    HWND handle() const { return hwnd_; }
 
 private:
     friend LRESULT CALLBACK MainWindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -58,7 +57,6 @@ private:
     std::uint32_t selected_output_mask() const;
     std::wstring selected_outputs_text() const;
     static std::wstring state_text(MonitorState s);
-    static std::wstring now_timestamp();
     std::wstring vm_product_name() const;
 
     // monitoring
@@ -118,11 +116,9 @@ private:
     HFONT font_ = nullptr;
     HFONT bold_font_ = nullptr;
 
-    std::int64_t last_now_ms_ = 0;
     std::int64_t last_load_try_ms_ = 0;
     std::int64_t last_login_try_ms_ = 0;
     int tick_ = 0;
-    float last_peak_db_ = -120.0f;
 
     NOTIFYICONDATAW nid_{};
     std::deque<std::wstring> log_lines_;

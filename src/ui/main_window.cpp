@@ -17,13 +17,23 @@ namespace {
 constexpr DWORD kWindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU |
                                WS_MINIMIZEBOX;
 
+// Derive the monitor configuration from the persisted app settings.
+MonitorConfig monitor_config_from(const AppSettings& s) {
+    MonitorConfig cfg;
+    cfg.sample_interval_ms = kTimerIntervalMs;
+    cfg.play_threshold_db = s.play_threshold_db;
+    cfg.silence_threshold_db = s.silence_threshold_db;
+    cfg.confirm_samples = s.confirm_samples;
+    cfg.arm_after_ms = s.arm_after_ms;
+    cfg.cooldown_ms = s.cooldown_ms;
+    return cfg;
+}
+
 } // namespace
 
 MainWindow::~MainWindow() {
-    remove_tray_icon();
-    if (timer_id_) {
-        KillTimer(hwnd_, timer_id_);
-    }
+    // Window-side cleanup (timer, tray icon, remote logout/unload) already
+    // happened in on_destroy(); only the GDI fonts are owned by the destructor.
     if (font_) {
         DeleteObject(font_);
         font_ = nullptr;
@@ -32,10 +42,6 @@ MainWindow::~MainWindow() {
         DeleteObject(bold_font_);
         bold_font_ = nullptr;
     }
-    if (remote_.loaded()) {
-        remote_.logout();
-    }
-    remote_.unload();
 }
 
 bool MainWindow::create(HINSTANCE hInstance) {
@@ -66,12 +72,7 @@ bool MainWindow::create(HINSTANCE hInstance) {
 
     // Load persisted settings before creating controls.
     settings_ = settings::load();
-    monitor_cfg_.sample_interval_ms = kTimerIntervalMs;
-    monitor_cfg_.play_threshold_db = settings_.play_threshold_db;
-    monitor_cfg_.silence_threshold_db = settings_.silence_threshold_db;
-    monitor_cfg_.confirm_samples = settings_.confirm_samples;
-    monitor_cfg_.arm_after_ms = settings_.arm_after_ms;
-    monitor_cfg_.cooldown_ms = settings_.cooldown_ms;
+    monitor_cfg_ = monitor_config_from(settings_);
     monitor_ = AudioMonitor(monitor_cfg_);
 
     hwnd_ = CreateWindowExW(0, appinfo::kWindowClass, appinfo::kDisplayName,
@@ -254,11 +255,7 @@ void MainWindow::on_command(int id) {
     case IDC_BTN_SAVE:
         apply_controls_to_settings();
         settings::save(settings_);
-        monitor_cfg_.play_threshold_db = settings_.play_threshold_db;
-        monitor_cfg_.silence_threshold_db = settings_.silence_threshold_db;
-        monitor_cfg_.confirm_samples = settings_.confirm_samples;
-        monitor_cfg_.arm_after_ms = settings_.arm_after_ms;
-        monitor_cfg_.cooldown_ms = settings_.cooldown_ms;
+        monitor_cfg_ = monitor_config_from(settings_);
         monitor_.set_config(monitor_cfg_);
         append_log(L"Settings saved");
         refresh_status_texts();

@@ -14,7 +14,6 @@ std::wstring ftime() {
 }
 
 int dpi_scale(int value, unsigned int dpi) {
-    if (dpi == 0) dpi = 96;
     return MulDiv(value, static_cast<int>(dpi), 96);
 }
 

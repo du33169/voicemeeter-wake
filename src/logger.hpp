@@ -11,8 +11,6 @@ class Logger {
 public:
     static Logger& instance();
 
-    void init() {}
-
     // Append a line (no timestamp added here; callers may add their own).
     void write(const std::wstring& line);
 

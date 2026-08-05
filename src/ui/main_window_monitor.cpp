@@ -68,7 +68,6 @@ void MainWindow::attempt_connect() {
 
 void MainWindow::poll_voicemeeter() {
     const auto now = static_cast<std::int64_t>(GetTickCount64());
-    last_now_ms_ = now;
 
     if (!remote_.loaded() || !logged_in_) {
         attempt_connect();
@@ -120,7 +119,6 @@ void MainWindow::poll_voicemeeter() {
         }
     }
 
-    last_peak_db_ = peak;
     update_level_display(peak);
     feed_monitor(peak, now, api_ok);
 }

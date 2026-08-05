@@ -56,12 +56,6 @@ void AudioMonitor::enter_state(MonitorState s, std::int64_t now_ms) {
 
 MonitorEvent AudioMonitor::update(float peak_db, std::int64_t now_ms, bool api_ok) {
     MonitorEvent ev;
-    ev.peak_db = peak_db;
-    if (peak_db != last_peak_db_) {
-        last_peak_db_ = peak_db;
-        ev.level_changed = true;
-    }
-
     if (!api_ok) {
         if (state_ != MonitorState::Disconnected) {
             reset();
