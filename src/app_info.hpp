@@ -28,6 +28,8 @@ inline constexpr const wchar_t* kRunValue = L"VoicemeeterWake";
 
 inline constexpr const wchar_t* kProjectUrl =
     L"https://github.com/du33169/voicemeeter-wake";
+inline constexpr const wchar_t* kReadmeUrl =
+    L"https://github.com/du33169/voicemeeter-wake#readme";
 inline constexpr const wchar_t* kVoicemeeterUrl =
     L"https://www.voicemeeter.com";
 

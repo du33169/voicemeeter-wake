@@ -4,6 +4,7 @@
 #include <commctrl.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cmath>
 
@@ -20,6 +21,25 @@ constexpr int kPlaySliderMinDb = -55;
 constexpr int kSliderMaxDb = 0;
 constexpr int kArmMaxMin = 120;     // arm silence: 1..120 minutes
 constexpr int kCooldownMaxSec = 60; // cooldown: 1..60 seconds
+
+std::wstring readme_target() {
+    std::array<wchar_t, 32768> exe_path{};
+    const DWORD len = GetModuleFileNameW(nullptr, exe_path.data(),
+                                         static_cast<DWORD>(exe_path.size()));
+    if (len == 0 || len >= exe_path.size()) return appinfo::kReadmeUrl;
+
+    std::wstring path(exe_path.data(), len);
+    const size_t slash = path.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) return appinfo::kReadmeUrl;
+    path.resize(slash + 1);
+    path += L"README.md";
+
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+                   (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0
+               ? path
+               : appinfo::kReadmeUrl;
+}
 
 } // namespace
 
@@ -206,19 +226,23 @@ void MainWindow::create_controls() {
     project_link += appinfo::kProjectUrl;
     project_link += L"</a>";
     mk(WC_LINK, project_link.c_str(),
-       WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
-       16, 716, 294, 20, IDC_LINK_PROJECT);
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
+        16, 716, 294, 20, IDC_LINK_PROJECT);
 
     const std::wstring version = L"v" + std::wstring(appinfo::kVersion);
     mk(L"STATIC", version.c_str(), WS_CHILD | WS_VISIBLE | SS_LEFT,
-       314, 716, 72, 20, IDC_STATIC_VERSION);
+        314, 716, 72, 20, IDC_STATIC_VERSION);
+
+    mk(WC_LINK, L"<a href=\"README\">README</a>",
+       WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
+       390, 716, 54, 20, IDC_LINK_README);
 
     std::wstring voicemeeter_link = L"<a href=\"";
     voicemeeter_link += appinfo::kVoicemeeterUrl;
     voicemeeter_link += L"\">Voicemeeter</a>";
     mk(WC_LINK, voicemeeter_link.c_str(),
        WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT | LWS_RIGHT,
-       448, 716, 120, 20, IDC_LINK_VOICEMEETER);
+        448, 716, 120, 20, IDC_LINK_VOICEMEETER);
 }
 
 void MainWindow::on_notify(LPARAM lParam) {
@@ -227,15 +251,17 @@ void MainWindow::on_notify(LPARAM lParam) {
         return;
     }
 
-    const wchar_t* url = nullptr;
+    std::wstring target;
     if (header->idFrom == IDC_LINK_PROJECT) {
-        url = appinfo::kProjectUrl;
+        target = appinfo::kProjectUrl;
+    } else if (header->idFrom == IDC_LINK_README) {
+        target = readme_target();
     } else if (header->idFrom == IDC_LINK_VOICEMEETER) {
-        url = appinfo::kVoicemeeterUrl;
+        target = appinfo::kVoicemeeterUrl;
     }
-    if (url && reinterpret_cast<INT_PTR>(
-                   ShellExecuteW(hwnd_, L"open", url, nullptr, nullptr,
-                                 SW_SHOWNORMAL)) <= 32) {
+    if (!target.empty() && reinterpret_cast<INT_PTR>(
+                   ShellExecuteW(hwnd_, L"open", target.c_str(), nullptr, nullptr,
+                                  SW_SHOWNORMAL)) <= 32) {
         append_log(L"Error: failed to open link");
     }
 }
