@@ -1,7 +1,5 @@
 #include "application.hpp"
 
-#include <dwmapi.h>
-
 #include "app_info.hpp"
 #include "logger.hpp"
 #include "main_window.hpp"

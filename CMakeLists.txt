@@ -5,7 +5,7 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VMWAKE_VERSION_RAW)
 string(STRIP "${VMWAKE_VERSION_RAW}" VMWAKE_VERSION)
 string(REPLACE "." "," VMWAKE_VERSION_COMMA "${VMWAKE_VERSION}")
 
-project(voicemeeter-wake VERSION "${VMWAKE_VERSION}" LANGUAGES C CXX)
+project(voicemeeter-wake VERSION "${VMWAKE_VERSION}" LANGUAGES CXX)
 
 set(VMWAKE_EXECUTABLE ${PROJECT_NAME})
 set(VMWAKE_PRODUCT_NAME "Voicemeeter Wake")
@@ -13,12 +13,9 @@ set(VMWAKE_DESCRIPTION "Restart Voicemeeter audio engine when playback resumes a
 set(VMWAKE_COMPANY "Voicemeeter Wake")
 
 configure_file(resources/app.rc.in "${CMAKE_CURRENT_BINARY_DIR}/app.rc" @ONLY)
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
 configure_file(src/app_version.hpp.in
   "${CMAKE_CURRENT_BINARY_DIR}/generated/app_version.hpp" @ONLY)
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -67,7 +64,6 @@ if(MINGW)
   # fallback private import library is considered.
   target_link_options(${VMWAKE_EXECUTABLE} PRIVATE
     -municode
-    -mwindows
     -static
     -Wl,--undefined=memchr
     -Wl,--undefined=memcmp
@@ -86,7 +82,6 @@ target_link_libraries(${VMWAKE_EXECUTABLE} PRIVATE
   shell32
   advapi32
   comctl32
-  dwmapi
   gdi32
   ucrtbase
 )
