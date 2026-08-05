@@ -14,8 +14,6 @@ struct AppSettings {
     int cooldown_ms = 5000;    // 5 s
     std::uint32_t output_bus_mask = 0x01; // one of A1..A5
     bool start_minimized = false;
-    int restart_count = 0;
-    std::wstring last_restart; // empty if never
 };
 
 namespace settings {

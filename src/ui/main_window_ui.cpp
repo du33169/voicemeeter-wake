@@ -303,11 +303,10 @@ void MainWindow::apply_settings_to_controls() {
     }
     update_output_controls();
 
-    swprintf(buf, 48, L"%d", settings_.restart_count);
+    swprintf(buf, 48, L"%d", restart_count_);
     SetWindowTextW(hwnd_restart_count_, buf);
     SetWindowTextW(hwnd_last_restart_,
-                   settings_.last_restart.empty() ? L"Never"
-                                                  : settings_.last_restart.c_str());
+                   last_restart_.empty() ? L"Never" : last_restart_.c_str());
 
     InvalidateRect(hwnd_level_bar_, nullptr, FALSE);
 }

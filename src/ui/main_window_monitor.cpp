@@ -170,18 +170,15 @@ void MainWindow::update_level_display(float peak_db) {
 
 bool MainWindow::do_restart() {
     if (remote_.set_parameter_float("Command.Restart", 1.0f)) {
-        if (settings_.restart_count < std::numeric_limits<int>::max()) {
-            ++settings_.restart_count;
+        if (restart_count_ < std::numeric_limits<int>::max()) {
+            ++restart_count_;
         }
-        settings_.last_restart = ftime();
-        if (!settings::save(settings_)) {
-            append_log(L"Error: restart statistics could not be persisted");
-        }
+        last_restart_ = ftime();
         append_log(L"Voicemeeter audio engine restarted (wake-up)");
         wchar_t buf[48];
-        swprintf(buf, 48, L"%d", settings_.restart_count);
+        swprintf(buf, 48, L"%d", restart_count_);
         SetWindowTextW(hwnd_restart_count_, buf);
-        SetWindowTextW(hwnd_last_restart_, settings_.last_restart.c_str());
+        SetWindowTextW(hwnd_last_restart_, last_restart_.c_str());
         update_tray_tooltip();
         return true;
     } else {

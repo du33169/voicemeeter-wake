@@ -2,7 +2,6 @@
 
 #include <windows.h>
 #include <algorithm>
-#include <limits>
 #include <vector>
 
 #include "app_info.hpp"
@@ -40,24 +39,6 @@ void read_from_key(HKEY key, AppSettings& s) {
                    ERROR_SUCCESS &&
                type == REG_DWORD;
     };
-    auto read_str = [&](const wchar_t* name, std::wstring* out) {
-        DWORD size = 0;
-        DWORD type = 0;
-        if (RegQueryValueExW(key, name, nullptr, &type, nullptr, &size) !=
-                ERROR_SUCCESS ||
-            type != REG_SZ || size == 0) {
-            return false;
-        }
-        std::vector<wchar_t> buf(size / sizeof(wchar_t) + 1, 0);
-        if (RegQueryValueExW(key, name, nullptr, &type,
-                             reinterpret_cast<LPBYTE>(buf.data()), &size) !=
-            ERROR_SUCCESS) {
-            return false;
-        }
-        *out = buf.data();
-        return true;
-    };
-
     DWORD v = 0;
     if (read_dword(L"Enabled", &v)) s.enabled = v != 0;
     if (read_dword(L"PlayThresholdDb", &v)) s.play_threshold_db = static_cast<float>(static_cast<long>(v)) / 100.0f;
@@ -70,10 +51,6 @@ void read_from_key(HKEY key, AppSettings& s) {
         s.cooldown_ms = static_cast<int>(std::min<DWORD>(v, 60000));
     if (read_dword(L"OutputBusMask", &v)) s.output_bus_mask = v & 0x1f;
     if (read_dword(L"StartMinimized", &v)) s.start_minimized = v != 0;
-    if (read_dword(L"RestartCount", &v))
-        s.restart_count = static_cast<int>(std::min<DWORD>(
-            v, static_cast<DWORD>(std::numeric_limits<int>::max())));
-    read_str(L"LastRestart", &s.last_restart);
 }
 
 } // namespace
@@ -98,8 +75,6 @@ AppSettings load() {
     s.cooldown_ms = std::clamp(s.cooldown_ms, 1000, 60000);
     if (s.output_bus_mask == 0) s.output_bus_mask = 0x01;
     s.output_bus_mask &= (~s.output_bus_mask + 1u);
-    s.restart_count = std::clamp(s.restart_count, 0,
-                                 std::numeric_limits<int>::max());
     return s;
 }
 
@@ -132,11 +107,6 @@ bool save(const AppSettings& s) {
     ok &= write_dword(L"CooldownMs", static_cast<DWORD>(s.cooldown_ms));
     ok &= write_dword(L"OutputBusMask", output_mask);
     ok &= write_dword(L"StartMinimized", s.start_minimized ? 1 : 0);
-    ok &= write_dword(L"RestartCount", static_cast<DWORD>(s.restart_count));
-    ok &= RegSetValueExW(key, L"LastRestart", 0, REG_SZ,
-                         reinterpret_cast<const BYTE*>(s.last_restart.c_str()),
-                         static_cast<DWORD>((s.last_restart.size() + 1) * sizeof(wchar_t))) ==
-          ERROR_SUCCESS;
 
     RegCloseKey(key);
     return ok;

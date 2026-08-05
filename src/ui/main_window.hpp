@@ -126,6 +126,8 @@ private:
     std::int64_t last_load_try_ms_ = 0;
     std::int64_t last_login_try_ms_ = 0;
     int tick_ = 0;
+    int restart_count_ = 0;
+    std::wstring last_restart_;
 
     NOTIFYICONDATAW nid_{};
     std::deque<std::wstring> log_lines_;
