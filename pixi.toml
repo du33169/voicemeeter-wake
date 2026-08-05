@@ -13,6 +13,8 @@ ninja = ">=1.12,<2"
 
 [tasks]
 configure = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain.cmake"
+clean = "cmake --build build --target clean"
+clean-all = "cmake -E rm -rf build"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"] }
 run = { cmd = "build\\voicemeeter-wake.exe", depends-on = ["build"] }
