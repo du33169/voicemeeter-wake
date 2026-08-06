@@ -65,7 +65,7 @@ bool MainWindow::create(HINSTANCE hInstance) {
         return false;
     }
 
-    RECT window_rect = {0, 0, dpi_scale(584, dpi_), dpi_scale(744, dpi_)};
+    RECT window_rect = {0, 0, dpi_scale(584, dpi_), dpi_scale(770, dpi_)};
     AdjustWindowRectExForDpi(&window_rect, kWindowStyle, FALSE, 0, dpi_);
     const int cx = window_rect.right - window_rect.left;
     const int cy = window_rect.bottom - window_rect.top;
@@ -262,6 +262,13 @@ void MainWindow::on_command(int id) {
             append_log(L"Error: start-minimized setting could not be persisted");
         }
         break;
+    case IDC_CHK_NOTIFY_ON_CLOSE:
+        settings_.notify_on_close =
+            Button_GetCheck(control(IDC_CHK_NOTIFY_ON_CLOSE)) == BST_CHECKED;
+        if (!settings::save(settings_)) {
+            append_log(L"Error: close-notification setting could not be persisted");
+        }
+        break;
     default:
         break;
     }
@@ -395,14 +402,15 @@ void MainWindow::on_close() {
     hidden_ = true;
     ShowWindow(hwnd_, SW_HIDE);
 
-    // Show a clear balloon notification when minimized to tray.
-    nid_.uFlags = NIF_INFO | NIF_TIP;
-    wcscpy(nid_.szInfoTitle, appinfo::kDisplayName);
-    wcscpy(nid_.szInfo,
-           L"Still running in the background - auto-wake is active. "
-           L"Right-click this icon to exit.");
-    Shell_NotifyIconW(NIM_MODIFY, &nid_);
-    nid_.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    if (settings_.notify_on_close) {
+        nid_.uFlags = NIF_INFO | NIF_TIP;
+        wcscpy(nid_.szInfoTitle, appinfo::kDisplayName);
+        wcscpy(nid_.szInfo,
+               L"Still running in the background - auto-wake is active. "
+               L"Right-click this icon to exit.");
+        Shell_NotifyIconW(NIM_MODIFY, &nid_);
+        nid_.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    }
 }
 
 void MainWindow::on_destroy() {

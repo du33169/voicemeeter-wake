@@ -14,6 +14,7 @@ struct AppSettings {
     int cooldown_ms = 5000;    // 5 s
     std::uint32_t output_bus_mask = 0x01; // one of A1..A5
     bool start_minimized = false;
+    bool notify_on_close = true;
 };
 
 namespace settings {

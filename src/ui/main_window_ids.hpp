@@ -42,6 +42,7 @@ enum ControlId : int {
     IDC_STATIC_VM_VERSION = 1205,
     IDC_STATIC_REMOTE_DLL = 1206,
     IDC_LINK_README = 1207,
+    IDC_CHK_NOTIFY_ON_CLOSE = 1208,
 };
 
 enum TrayCmd : unsigned int {

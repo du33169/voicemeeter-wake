@@ -120,7 +120,7 @@ void MainWindow::create_controls() {
 
     // --- Settings group (all options together) ---
     const int sy = 202;
-    const int sh = 148;
+    const int sh = 174;
     mkGroup(L"Settings", L, sy, W, sh);
 
     // Row 1: dB thresholds (play / silence)
@@ -196,8 +196,11 @@ void MainWindow::create_controls() {
            BS_AUTOCHECKBOX, L + 10, sy + 112, 170, 22, IDC_CHK_AUTOSTART);
     mk(L"BUTTON", L"Start minimized to tray", WS_CHILD | WS_VISIBLE | WS_TABSTOP |
            BS_AUTOCHECKBOX, L + 190, sy + 112, 225, 22, IDC_CHK_MINIMIZE);
+    mk(L"BUTTON", L"Notify when closing to tray",
+       WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+       L + 10, sy + 138, 260, 22, IDC_CHK_NOTIFY_ON_CLOSE);
     mk(L"BUTTON", L"Save settings", WS_CHILD | WS_VISIBLE | WS_TABSTOP |
-           BS_PUSHBUTTON, L + 430, sy + 108, 100, 26, IDC_BTN_SAVE);
+           BS_PUSHBUTTON, L + 430, sy + 134, 100, 26, IDC_BTN_SAVE);
 
     // --- Stats ---
     const int statY = sy + sh + 12;
@@ -218,7 +221,7 @@ void MainWindow::create_controls() {
 
     // --- Footer status row ---
     mk(L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_ETCHEDHORZ,
-       0, 708, 584, 2, 0);
+       0, 734, 584, 2, 0);
 
     std::wstring project_link = L"<a href=\"";
     project_link += appinfo::kProjectUrl;
@@ -227,22 +230,22 @@ void MainWindow::create_controls() {
     project_link += L"</a>";
     mk(WC_LINK, project_link.c_str(),
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
-        16, 716, 294, 20, IDC_LINK_PROJECT);
+        16, 742, 294, 20, IDC_LINK_PROJECT);
 
     const std::wstring version = L"v" + std::wstring(appinfo::kVersion);
     mk(L"STATIC", version.c_str(), WS_CHILD | WS_VISIBLE | SS_LEFT,
-        314, 716, 72, 20, IDC_STATIC_VERSION);
+        314, 742, 72, 20, IDC_STATIC_VERSION);
 
     mk(WC_LINK, L"<a href=\"README\">README</a>",
        WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT,
-       390, 716, 54, 20, IDC_LINK_README);
+       390, 742, 54, 20, IDC_LINK_README);
 
     std::wstring voicemeeter_link = L"<a href=\"";
     voicemeeter_link += appinfo::kVoicemeeterUrl;
     voicemeeter_link += L"\">Voicemeeter</a>";
     mk(WC_LINK, voicemeeter_link.c_str(),
        WS_CHILD | WS_VISIBLE | WS_TABSTOP | LWS_TRANSPARENT | LWS_RIGHT,
-        448, 716, 120, 20, IDC_LINK_VOICEMEETER);
+         448, 742, 120, 20, IDC_LINK_VOICEMEETER);
 }
 
 void MainWindow::on_notify(LPARAM lParam) {
@@ -270,6 +273,8 @@ void MainWindow::apply_settings_to_controls() {
     update_pause_button();
     Button_SetCheck(control(IDC_CHK_MINIMIZE),
                     settings_.start_minimized ? BST_CHECKED : BST_UNCHECKED);
+    Button_SetCheck(control(IDC_CHK_NOTIFY_ON_CLOSE),
+                    settings_.notify_on_close ? BST_CHECKED : BST_UNCHECKED);
     Button_SetCheck(control(IDC_CHK_AUTOSTART),
                     settings::get_autostart() ? BST_CHECKED : BST_UNCHECKED);
 
@@ -314,6 +319,8 @@ void MainWindow::apply_settings_to_controls() {
 void MainWindow::apply_controls_to_settings() {
     settings_.start_minimized =
         Button_GetCheck(control(IDC_CHK_MINIMIZE)) == BST_CHECKED;
+    settings_.notify_on_close =
+        Button_GetCheck(control(IDC_CHK_NOTIFY_ON_CLOSE)) == BST_CHECKED;
 
     BOOL translated = FALSE;
     int pp = static_cast<int>(GetDlgItemInt(hwnd_, IDC_EDIT_PLAY, &translated, TRUE));

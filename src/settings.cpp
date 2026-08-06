@@ -51,6 +51,7 @@ void read_from_key(HKEY key, AppSettings& s) {
         s.cooldown_ms = static_cast<int>(std::min<DWORD>(v, 60000));
     if (read_dword(L"OutputBusMask", &v)) s.output_bus_mask = v & 0x1f;
     if (read_dword(L"StartMinimized", &v)) s.start_minimized = v != 0;
+    if (read_dword(L"NotifyOnClose", &v)) s.notify_on_close = v != 0;
 }
 
 } // namespace
@@ -107,6 +108,7 @@ bool save(const AppSettings& s) {
     ok &= write_dword(L"CooldownMs", static_cast<DWORD>(s.cooldown_ms));
     ok &= write_dword(L"OutputBusMask", output_mask);
     ok &= write_dword(L"StartMinimized", s.start_minimized ? 1 : 0);
+    ok &= write_dword(L"NotifyOnClose", s.notify_on_close ? 1 : 0);
 
     RegCloseKey(key);
     return ok;
