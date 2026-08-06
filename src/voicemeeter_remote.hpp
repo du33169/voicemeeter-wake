@@ -38,11 +38,17 @@ public:
     // VBVMR_Login: 0 = ok, 1 = ok but Voicemeeter not running.
     long login();
     long logout();
+    long force_logout();
     long run_voicemeeter(Type type);
-    bool get_type(Type& out);
-    bool get_version(unsigned long& out);
-    bool get_level(long levelType, long channel, float& out);
-    bool set_parameter_float(const char* name, float value);
+    long get_type(Type& out);
+    long get_version(unsigned long& out);
+    long get_level(long levelType, long channel, float& out);
+    long set_parameter_float(const char* name, float value);
+
+    static const wchar_t* login_result_text(long rc);
+    static const wchar_t* info_result_text(long rc);
+    static const wchar_t* level_result_text(long rc);
+    static const wchar_t* set_parameter_result_text(long rc);
 
 private:
     using FnLong = long(WINAPI*)();

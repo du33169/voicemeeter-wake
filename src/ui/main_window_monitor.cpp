@@ -12,6 +12,16 @@
 
 namespace vmwake {
 
+namespace {
+
+std::wstring api_error(const std::wstring& operation, long rc,
+                       const wchar_t* reason) {
+    return L"Error: " + operation + L" failed: rc=" +
+           std::to_wstring(rc) + L" (" + reason + L")";
+}
+
+} // namespace
+
 bool MainWindow::start_timer() {
     if (timer_id_) {
         KillTimer(hwnd_, timer_id_);
@@ -52,15 +62,33 @@ void MainWindow::attempt_connect() {
             last_login_try_ms_ = now;
             const long rc = remote_.login();
             if (rc == 0 || rc == 1) {
+                last_login_error_ = 0;
                 logged_in_ = true;
                 type_known_ = false;
                 vm_running_ = rc == 0;
                 if (vm_running_) {
-                    append_log(L"Connected to Voicemeeter");
+                    if (!connection_recovery_pending_) {
+                        append_log(L"Connected to Voicemeeter");
+                    }
                 } else {
                     append_log(L"Voicemeeter not running (waiting for launch)");
                 }
                 refresh_status_texts();
+            } else {
+                const bool error_changed = rc != last_login_error_;
+                if (error_changed) {
+                    append_log(api_error(L"VBVMR_Login", rc,
+                                         VoicemeeterRemote::login_result_text(rc)));
+                    last_login_error_ = rc;
+                }
+                if (rc == -2) {
+                    const long logout_rc = remote_.force_logout();
+                    connection_recovery_pending_ = true;
+                    if (error_changed) {
+                        append_log(L"VBVMR_Login recovery: forced VBVMR_Logout, rc=" +
+                                   std::to_wstring(logout_rc));
+                    }
+                }
             }
         }
     }
@@ -78,15 +106,45 @@ void MainWindow::poll_voicemeeter() {
 
     if (!type_known_) {
         VoicemeeterRemote::Type t;
-        if (remote_.get_type(t) && t != VoicemeeterRemote::Type::None) {
+        const long type_rc = remote_.get_type(t);
+        if (type_rc == 0 && t != VoicemeeterRemote::Type::None) {
+            last_type_error_ = 0;
             vm_type_ = t;
             type_known_ = true;
             vm_running_ = true;
-            version_known_ = remote_.get_version(vm_version_);
+            const long version_rc = remote_.get_version(vm_version_);
+            version_known_ = version_rc == 0;
+            if (version_rc == 0) {
+                last_version_error_ = 0;
+            } else if (version_rc != last_version_error_) {
+                append_log(api_error(L"VBVMR_GetVoicemeeterVersion", version_rc,
+                                     VoicemeeterRemote::info_result_text(version_rc)));
+                last_version_error_ = version_rc;
+            }
             update_output_controls();
-            append_log(L"Voicemeeter detected; monitoring " +
-                       selected_outputs_text());
+            if (!connection_recovery_pending_) {
+                append_log(L"Voicemeeter detected; monitoring " +
+                           selected_outputs_text());
+            }
             refresh_status_texts();
+        } else if (type_rc != 0) {
+            const bool waiting_for_launch = type_rc == -2 && !vm_running_;
+            const bool error_changed = type_rc != last_type_error_;
+            if (!waiting_for_launch && error_changed) {
+                append_log(api_error(L"VBVMR_GetVoicemeeterType", type_rc,
+                                     VoicemeeterRemote::info_result_text(type_rc)));
+                last_type_error_ = type_rc;
+            }
+            if (!waiting_for_launch && type_rc == -2) {
+                const long logout_rc = remote_.logout();
+                connection_recovery_pending_ = true;
+                if (error_changed) {
+                    append_log(L"Connection reset after type query failure; "
+                               L"VBVMR_Logout rc=" + std::to_wstring(logout_rc));
+                }
+                reset_connection();
+                refresh_status_texts();
+            }
         }
     }
 
@@ -96,6 +154,8 @@ void MainWindow::poll_voicemeeter() {
     }
 
     bool api_ok = type_known_ && output_count() > 0;
+    long level_error = 0;
+    int failed_channel = -1;
     float peak = -120.0f;
     if (api_ok) {
         const std::uint32_t selected = selected_output_mask();
@@ -103,19 +163,47 @@ void MainWindow::poll_voicemeeter() {
             if ((selected & (1u << output)) == 0) continue;
             for (int channel = 0; channel < 8; ++channel) {
                 float v = 0.0f;
-                if (remote_.get_level(3, output * 8 + channel, v)) {
+                const int api_channel = output * 8 + channel;
+                const long level_rc = remote_.get_level(3, api_channel, v);
+                if (level_rc == 0) {
                     const float db =
                         v > 1e-6f ? 20.0f * std::log10(v) : -120.0f;
                     if (db > peak) peak = db;
                 } else {
                     api_ok = false;
-                    append_log(L"Voicemeeter connection lost; reconnecting");
-                    remote_.logout();
-                    reset_connection();
-                    refresh_status_texts();
+                    level_error = level_rc;
+                    failed_channel = api_channel;
                     break;
                 }
             }
+        }
+    }
+
+    if (level_error == 0) {
+        last_level_error_ = 0;
+        if (api_ok && connection_recovery_pending_) {
+            append_log(L"Voicemeeter connection recovered; monitoring " +
+                       selected_outputs_text());
+            connection_recovery_pending_ = false;
+        }
+    } else {
+        const bool error_changed = level_error != last_level_error_;
+        if (error_changed) {
+            append_log(api_error(L"VBVMR_GetLevel(type=3, channel=" +
+                                     std::to_wstring(failed_channel) + L")",
+                                 level_error,
+                                 VoicemeeterRemote::level_result_text(level_error)));
+            last_level_error_ = level_error;
+        }
+        if (level_error == -1 || level_error == -2) {
+            const long logout_rc = remote_.logout();
+            connection_recovery_pending_ = true;
+            if (error_changed) {
+                append_log(L"Voicemeeter connection lost; reconnecting "
+                           L"(VBVMR_Logout rc=" + std::to_wstring(logout_rc) + L")");
+            }
+            reset_connection();
+            refresh_status_texts();
         }
     }
 
@@ -169,12 +257,14 @@ void MainWindow::update_level_display(float peak_db) {
 }
 
 bool MainWindow::do_restart() {
-    if (remote_.set_parameter_float("Command.Restart", 1.0f)) {
+    const long rc = remote_.set_parameter_float("Command.Restart", 1.0f);
+    if (rc == 0) {
+        last_restart_error_ = 0;
         if (restart_count_ < std::numeric_limits<int>::max()) {
             ++restart_count_;
         }
         last_restart_ = ftime();
-        append_log(L"Voicemeeter audio engine restarted (wake-up)");
+        append_log(L"Voicemeeter audio engine restart command accepted (wake-up)");
         wchar_t buf[48];
         swprintf(buf, 48, L"%d", restart_count_);
         SetWindowTextW(hwnd_restart_count_, buf);
@@ -182,7 +272,24 @@ bool MainWindow::do_restart() {
         update_tray_tooltip();
         return true;
     } else {
-        append_log(L"Error: restart command failed");
+        if (rc != last_restart_error_) {
+            append_log(api_error(L"VBVMR_SetParameterFloat(Command.Restart)", rc,
+                                 VoicemeeterRemote::set_parameter_result_text(rc)));
+            last_restart_error_ = rc;
+        }
+        if (rc == -2) {
+            const long logout_rc = remote_.logout();
+            connection_recovery_pending_ = true;
+            append_log(L"Restart failed because the server is unavailable; "
+                       L"reconnecting (VBVMR_Logout rc=" +
+                       std::to_wstring(logout_rc) + L")");
+            reset_connection();
+            refresh_status_texts();
+        } else if (rc == -3) {
+            append_log(L"Restart parameter is unsupported; waiting for a new "
+                       L"silence/playback cycle before another attempt");
+            monitor_.reset();
+        }
         return false;
     }
 }

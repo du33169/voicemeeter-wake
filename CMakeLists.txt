@@ -92,6 +92,7 @@ enable_testing()
 add_executable(audio_monitor_tests
   tests/audio_monitor_tests.cpp
   src/audio_monitor.cpp
+  src/voicemeeter_remote.cpp
 )
 
 target_include_directories(audio_monitor_tests PRIVATE src)
@@ -104,5 +105,7 @@ if(MINGW)
   target_compile_options(audio_monitor_tests PRIVATE -Wall -Wextra)
   target_link_options(audio_monitor_tests PRIVATE -static)
 endif()
+
+target_link_libraries(audio_monitor_tests PRIVATE advapi32)
 
 add_test(NAME audio_monitor COMMAND audio_monitor_tests)

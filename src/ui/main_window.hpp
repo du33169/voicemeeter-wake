@@ -125,6 +125,12 @@ private:
 
     std::int64_t last_load_try_ms_ = 0;
     std::int64_t last_login_try_ms_ = 0;
+    long last_login_error_ = 0;
+    long last_type_error_ = 0;
+    long last_version_error_ = 0;
+    long last_level_error_ = 0;
+    long last_restart_error_ = 0;
+    bool connection_recovery_pending_ = false;
     int tick_ = 0;
     int restart_count_ = 0;
     std::wstring last_restart_;

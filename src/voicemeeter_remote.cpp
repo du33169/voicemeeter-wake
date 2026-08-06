@@ -137,6 +137,10 @@ long VoicemeeterRemote::login() {
 
 long VoicemeeterRemote::logout() {
     if (!logged_in_) return 0;
+    return force_logout();
+}
+
+long VoicemeeterRemote::force_logout() {
     const long rc = fn_logout_ ? fn_logout_() : -1;
     logged_in_ = false;
     return rc;
@@ -146,30 +150,72 @@ long VoicemeeterRemote::run_voicemeeter(Type type) {
     return fn_run_ ? fn_run_(static_cast<long>(type)) : -1;
 }
 
-bool VoicemeeterRemote::get_type(Type& out) {
-    if (!fn_get_type_) return false;
+long VoicemeeterRemote::get_type(Type& out) {
+    if (!fn_get_type_) return -1;
     long t = 0;
-    if (fn_get_type_(&t) != 0) return false;
+    const long rc = fn_get_type_(&t);
+    if (rc != 0) return rc;
     out = static_cast<Type>(t);
-    return true;
+    return 0;
 }
 
-bool VoicemeeterRemote::get_version(unsigned long& out) {
-    if (!fn_get_version_) return false;
+long VoicemeeterRemote::get_version(unsigned long& out) {
+    if (!fn_get_version_) return -1;
     long v = 0;
-    if (fn_get_version_(&v) != 0) return false;
+    const long rc = fn_get_version_(&v);
+    if (rc != 0) return rc;
     out = static_cast<unsigned long>(v);
-    return true;
+    return 0;
 }
 
-bool VoicemeeterRemote::get_level(long levelType, long channel, float& out) {
-    if (!fn_get_level_) return false;
-    return fn_get_level_(levelType, channel, &out) == 0;
+long VoicemeeterRemote::get_level(long levelType, long channel, float& out) {
+    if (!fn_get_level_) return -1;
+    return fn_get_level_(levelType, channel, &out);
 }
 
-bool VoicemeeterRemote::set_parameter_float(const char* name, float value) {
-    if (!fn_set_parameter_float_) return false;
-    return fn_set_parameter_float_(const_cast<char*>(name), value) == 0;
+long VoicemeeterRemote::set_parameter_float(const char* name, float value) {
+    if (!fn_set_parameter_float_) return -1;
+    return fn_set_parameter_float_(const_cast<char*>(name), value);
+}
+
+const wchar_t* VoicemeeterRemote::login_result_text(long rc) {
+    switch (rc) {
+    case 0: return L"OK";
+    case 1: return L"Voicemeeter is not running";
+    case -1: return L"cannot get Remote API client";
+    case -2: return L"unexpected login; logout required";
+    default: return L"unknown result";
+    }
+}
+
+const wchar_t* VoicemeeterRemote::info_result_text(long rc) {
+    switch (rc) {
+    case 0: return L"OK";
+    case -1: return L"cannot get Remote API client";
+    case -2: return L"Voicemeeter server unavailable";
+    default: return L"unknown result";
+    }
+}
+
+const wchar_t* VoicemeeterRemote::level_result_text(long rc) {
+    switch (rc) {
+    case 0: return L"OK";
+    case -1: return L"Remote API error";
+    case -2: return L"Voicemeeter server unavailable";
+    case -3: return L"level temporarily unavailable";
+    case -4: return L"level channel out of range";
+    default: return L"unknown result";
+    }
+}
+
+const wchar_t* VoicemeeterRemote::set_parameter_result_text(long rc) {
+    switch (rc) {
+    case 0: return L"OK";
+    case -1: return L"Remote API error";
+    case -2: return L"Voicemeeter server unavailable";
+    case -3: return L"unknown parameter";
+    default: return L"unknown result";
+    }
 }
 
 } // namespace vmwake

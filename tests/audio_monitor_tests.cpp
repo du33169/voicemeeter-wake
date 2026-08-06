@@ -3,10 +3,12 @@
 #include <vector>
 
 #include "audio_monitor.hpp"
+#include "voicemeeter_remote.hpp"
 
 using vmwake::AudioMonitor;
 using vmwake::MonitorConfig;
 using vmwake::MonitorState;
+using vmwake::VoicemeeterRemote;
 
 namespace {
 
@@ -193,6 +195,21 @@ void test_failed_restart_stays_armed_and_retries() {
     check(retried, "failed restart retries after the backoff window");
 }
 
+void test_remote_result_descriptions() {
+    check(std::wstring(VoicemeeterRemote::login_result_text(-2)) ==
+              L"unexpected login; logout required",
+          "login -2 describes required logout recovery");
+    check(std::wstring(VoicemeeterRemote::level_result_text(-3)) ==
+              L"level temporarily unavailable",
+          "level -3 is distinguished from a lost server");
+    check(std::wstring(VoicemeeterRemote::set_parameter_result_text(-2)) ==
+              L"Voicemeeter server unavailable",
+          "set parameter -2 describes unavailable server");
+    check(std::wstring(VoicemeeterRemote::set_parameter_result_text(-3)) ==
+              L"unknown parameter",
+          "set parameter -3 describes unknown parameter");
+}
+
 } // namespace
 
 int main() {
@@ -206,6 +223,7 @@ int main() {
     test_threshold_jitter_no_false_trigger();
     test_reset_clears_state();
     test_failed_restart_stays_armed_and_retries();
+    test_remote_result_descriptions();
 
     if (g_failures == 0) {
         std::printf("All audio_monitor tests passed.\n");
