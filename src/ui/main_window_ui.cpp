@@ -447,6 +447,8 @@ void MainWindow::refresh_status_texts() {
     wchar_t buf[64];
     if (!remote_.loaded()) {
         set_status_text(L"Remote not found");
+    } else if (!logged_in_ && last_login_error_ == 1) {
+        set_status_text(L"Waiting");
     } else if (!logged_in_) {
         set_status_text(L"Connecting...");
     } else if (!vm_running_) {

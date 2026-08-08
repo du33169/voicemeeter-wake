@@ -61,18 +61,23 @@ void MainWindow::attempt_connect() {
         if (now - last_login_try_ms_ >= 1000) {
             last_login_try_ms_ = now;
             const long rc = remote_.login();
-            if (rc == 0 || rc == 1) {
+            if (rc == 0) {
                 last_login_error_ = 0;
                 logged_in_ = true;
                 type_known_ = false;
-                vm_running_ = rc == 0;
-                if (vm_running_) {
-                    if (!connection_recovery_pending_) {
-                        append_log(L"Connected to Voicemeeter");
-                    }
-                } else {
+                vm_running_ = true;
+                if (!connection_recovery_pending_) {
+                    append_log(L"Connected to Voicemeeter");
+                }
+                refresh_status_texts();
+            } else if (rc == 1) {
+                if (last_login_error_ != rc) {
                     append_log(L"Voicemeeter not running (waiting for launch)");
                 }
+                last_login_error_ = rc;
+                remote_.force_logout();
+                logged_in_ = false;
+                vm_running_ = false;
                 refresh_status_texts();
             } else {
                 const bool error_changed = rc != last_login_error_;
