@@ -2,7 +2,7 @@
 channels = ["conda-forge"]
 platforms = ["win-64"]
 name = "voicemeeter-wake"
-version = "0.1.0"
+version = "0.1.1"
 description = "Watch Voicemeeter output level and restart the audio engine once when audio resumes after a long silence (headphone wake-up)."
 
 [dependencies]

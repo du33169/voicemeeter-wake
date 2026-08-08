@@ -16,8 +16,7 @@ namespace vmwake {
 
 namespace {
 
-constexpr int kSliderMinDb = -60;
-constexpr int kPlaySliderMinDb = -55;
+constexpr int kSliderMinDb = -70;
 constexpr int kSliderMaxDb = 0;
 constexpr int kArmMaxMin = 120;     // arm silence: 1..120 minutes
 constexpr int kCooldownMaxSec = 60; // cooldown: 1..60 seconds
@@ -134,8 +133,7 @@ void MainWindow::create_controls() {
                          0, 0, 0, 0, IDC_SPIN_PLAY);
     SendMessageW(hwnd_play_spin_, UDM_SETBUDDY,
                  reinterpret_cast<WPARAM>(control(IDC_EDIT_PLAY)), 0);
-    SendMessageW(hwnd_play_spin_, UDM_SETRANGE32, kPlaySliderMinDb,
-                 kSliderMaxDb);
+    SendMessageW(hwnd_play_spin_, UDM_SETRANGE32, kSliderMinDb, kSliderMaxDb);
     mkLabel(L"dB", L + 194, sy + 22, 24, 20, 0);
 
     mkLabel(L"Silence thr (dB):", L + 270, sy + 22, 102, 20, 0);
@@ -281,7 +279,7 @@ void MainWindow::apply_settings_to_controls() {
     wchar_t buf[48];
 
     int db = std::clamp(static_cast<int>(std::lround(settings_.play_threshold_db)),
-                         kPlaySliderMinDb, kSliderMaxDb);
+                        kSliderMinDb, kSliderMaxDb);
     SendMessageW(hwnd_play_spin_, UDM_SETPOS32, 0, db);
 
     db = std::clamp(static_cast<int>(std::lround(settings_.silence_threshold_db)),
@@ -316,47 +314,61 @@ void MainWindow::apply_settings_to_controls() {
     InvalidateRect(hwnd_level_bar_, nullptr, FALSE);
 }
 
-void MainWindow::apply_controls_to_settings() {
+bool MainWindow::apply_controls_to_settings() {
+    auto read_int = [&](int id, bool is_signed, int minimum, int maximum,
+                        const wchar_t* name, int& out) {
+        BOOL translated = FALSE;
+        const int value = static_cast<int>(
+            GetDlgItemInt(hwnd_, id, &translated, is_signed));
+        if (translated && value >= minimum && value <= maximum) {
+            out = value;
+            return true;
+        }
+
+        const std::wstring message = std::wstring(name) + L" must be an integer from " +
+                                     std::to_wstring(minimum) + L" to " +
+                                     std::to_wstring(maximum) + L".";
+        MessageBoxW(hwnd_, message.c_str(), L"Invalid setting",
+                    MB_OK | MB_ICONWARNING);
+        HWND edit = control(id);
+        SetFocus(edit);
+        SendMessageW(edit, EM_SETSEL, 0, -1);
+        return false;
+    };
+
+    int pp = 0;
+    int sp = 0;
+    int arm_min = 0;
+    int cool_sec = 0;
+    if (!read_int(IDC_EDIT_PLAY, true, kSliderMinDb, kSliderMaxDb,
+                  L"Play threshold", pp) ||
+        !read_int(IDC_EDIT_SIL, true, kSliderMinDb, kSliderMaxDb,
+                  L"Silence threshold", sp) ||
+        !read_int(IDC_EDIT_ARM, false, 1, kArmMaxMin,
+                  L"Arm silence", arm_min) ||
+        !read_int(IDC_EDIT_COOLDOWN, false, 1, kCooldownMaxSec,
+                  L"Cooldown", cool_sec)) {
+        return false;
+    }
+
+    if (sp >= pp) {
+        MessageBoxW(hwnd_,
+                    L"Silence threshold must be lower than the play threshold.",
+                    L"Invalid setting", MB_OK | MB_ICONWARNING);
+        HWND edit = control(IDC_EDIT_SIL);
+        SetFocus(edit);
+        SendMessageW(edit, EM_SETSEL, 0, -1);
+        return false;
+    }
+
     settings_.start_minimized =
         Button_GetCheck(control(IDC_CHK_MINIMIZE)) == BST_CHECKED;
     settings_.notify_on_close =
         Button_GetCheck(control(IDC_CHK_NOTIFY_ON_CLOSE)) == BST_CHECKED;
-
-    BOOL translated = FALSE;
-    int pp = static_cast<int>(GetDlgItemInt(hwnd_, IDC_EDIT_PLAY, &translated, TRUE));
-    if (!translated) pp = -50;
-    pp = std::clamp(pp, kPlaySliderMinDb, kSliderMaxDb);
     settings_.play_threshold_db = static_cast<float>(pp);
-    SendMessageW(hwnd_play_spin_, UDM_SETPOS32, 0, pp);
-
-    translated = FALSE;
-    int sp = static_cast<int>(GetDlgItemInt(hwnd_, IDC_EDIT_SIL, &translated, TRUE));
-    if (!translated) sp = -55;
-    sp = std::clamp(sp, kSliderMinDb, kSliderMaxDb);
     settings_.silence_threshold_db = static_cast<float>(sp);
-
-    // Keep a hysteresis gap: silence must stay below the play threshold.
-    if (settings_.silence_threshold_db >= settings_.play_threshold_db) {
-        settings_.silence_threshold_db = settings_.play_threshold_db - 5.0f;
-        sp = static_cast<int>(std::lround(settings_.silence_threshold_db));
-        SendMessageW(hwnd_sil_spin_, UDM_SETPOS32, 0, sp);
-    }
-
-    translated = FALSE;
-    int arm_min = static_cast<int>(
-        GetDlgItemInt(hwnd_, IDC_EDIT_ARM, &translated, FALSE));
-    if (!translated) arm_min = 1;
-    arm_min = std::clamp(arm_min, 1, kArmMaxMin);
     settings_.arm_after_ms = arm_min * 60000;
-    SendMessageW(hwnd_arm_spin_, UDM_SETPOS32, 0, arm_min);
-
-    translated = FALSE;
-    int cool_sec = static_cast<int>(
-        GetDlgItemInt(hwnd_, IDC_EDIT_COOLDOWN, &translated, FALSE));
-    if (!translated) cool_sec = 1;
-    cool_sec = std::clamp(cool_sec, 1, kCooldownMaxSec);
     settings_.cooldown_ms = cool_sec * 1000;
-    SendMessageW(hwnd_cooldown_spin_, UDM_SETPOS32, 0, cool_sec);
 
     const int count = output_count();
     if (count > 0) {
@@ -374,7 +386,9 @@ void MainWindow::apply_controls_to_settings() {
         settings_.output_bus_mask = mask ? mask & valid_mask : 0x01u;
     }
     update_output_controls();
-    InvalidateRect(hwnd_level_bar_, nullptr, FALSE);
+    RedrawWindow(hwnd_level_bar_, nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_UPDATENOW);
+    return true;
 }
 
 void MainWindow::update_pause_button() {

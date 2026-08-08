@@ -233,7 +233,7 @@ void MainWindow::on_command(int id) {
         break;
     }
     case IDC_BTN_SAVE:
-        apply_controls_to_settings();
+        if (!apply_controls_to_settings()) break;
         if (settings::save(settings_)) {
             append_log(L"Settings saved");
         } else {

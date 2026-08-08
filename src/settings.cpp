@@ -13,6 +13,8 @@ namespace {
 
 constexpr wchar_t kRunPath[] =
     L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+constexpr float kThresholdMinDb = -70.0f;
+constexpr float kThresholdMaxDb = 0.0f;
 
 std::wstring current_exe_path() {
     std::vector<wchar_t> buf(MAX_PATH);
@@ -66,10 +68,18 @@ AppSettings load() {
         RegCloseKey(key);
     }
 
-    s.play_threshold_db = std::clamp(s.play_threshold_db, -55.0f, 0.0f);
-    s.silence_threshold_db = std::clamp(s.silence_threshold_db, -60.0f, 0.0f);
+    s.play_threshold_db =
+        std::clamp(s.play_threshold_db, kThresholdMinDb, kThresholdMaxDb);
+    s.silence_threshold_db =
+        std::clamp(s.silence_threshold_db, kThresholdMinDb, kThresholdMaxDb);
     if (s.silence_threshold_db >= s.play_threshold_db) {
-        s.silence_threshold_db = s.play_threshold_db - 5.0f;
+        if (s.play_threshold_db > kThresholdMinDb) {
+            s.silence_threshold_db =
+                std::max(kThresholdMinDb, s.play_threshold_db - 5.0f);
+        } else {
+            s.play_threshold_db = -65.0f;
+            s.silence_threshold_db = kThresholdMinDb;
+        }
     }
     s.confirm_samples = std::clamp(s.confirm_samples, 1, 100);
     s.arm_after_ms = std::clamp(s.arm_after_ms, 60000, 120 * 60000);

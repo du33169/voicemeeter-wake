@@ -47,7 +47,7 @@ private:
     // ui
     void create_controls();
     void apply_settings_to_controls();
-    void apply_controls_to_settings();
+    bool apply_controls_to_settings();
     void refresh_status_texts();
     void set_status_text(const std::wstring& text);
     void set_state_text(const std::wstring& text);
